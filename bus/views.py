@@ -531,7 +531,7 @@ def diagnostics(request):
         return Response({
             "status": "ok",
             "settings": {
-                "mongodb_uri": getattr(settings, "MONGODB_URI", None),
+                "mongodb_uri": getattr(settings, "MONGO_URI", None),
                 "mongodb_database": getattr(settings, "MONGODB_DATABASE", None),
                 "mongodb_collection": getattr(settings, "MONGODB_COLLECTION", None),
             },
