@@ -86,8 +86,8 @@ WSGI_APPLICATION = 'backend_bus_pr.wsgi.application'
 
 # MongoDB Atlas Configuration
 MONGO_URI = os.getenv("MONGO_URI")
-MONGODB_DATABASE = config('MONGODB_DATABASE', default='bus_atlas')
-MONGODB_COLLECTION = config('MONGODB_COLLECTION', default='north_dwar')
+MONGODB_DATABASE = config('MONGODB_DATABASE', default='bus')
+MONGODB_COLLECTION = config('MONGODB_COLLECTION', default='bus')
 
 # Use SQLite for Django ORM (since we're using pymongo directly for MongoDB)
 DATABASES = {
