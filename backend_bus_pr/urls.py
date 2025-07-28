@@ -115,6 +115,56 @@ def test_mongo_connection(request):
             'error_type': type(e).__name__
         }, status=500)
 
+def inspect_database(request):
+    """Inspect what's in the MongoDB database."""
+    from django.conf import settings
+    from pymongo import MongoClient
+    import logging
+    
+    logger = logging.getLogger(__name__)
+    
+    try:
+        client = MongoClient(settings.MONGO_URI)
+        db = client[settings.MONGODB_DATABASE]
+        
+        # Get all collections
+        collections = db.list_collection_names()
+        
+        # Get database stats
+        db_stats = db.command('dbStats')
+        
+        # Get info about each collection
+        collection_info = []
+        for collection_name in collections:
+            collection = db[collection_name]
+            count = collection.count_documents({})
+            collection_info.append({
+                'name': collection_name,
+                'document_count': count,
+                'sample_document': list(collection.find().limit(1))
+            })
+        
+        client.close()
+        
+        return JsonResponse({
+            'status': 'success',
+            'database_name': settings.MONGODB_DATABASE,
+            'collections': collections,
+            'collection_details': collection_info,
+            'database_stats': {
+                'collections': db_stats.get('collections', 0),
+                'data_size_mb': round(db_stats.get('dataSize', 0) / (1024*1024), 2),
+                'storage_size_mb': round(db_stats.get('storageSize', 0) / (1024*1024), 2)
+            }
+        })
+        
+    except Exception as e:
+        logger.error(f"Error inspecting database: {e}")
+        return JsonResponse({
+            'status': 'error',
+            'error': str(e)
+        }, status=500)
+
 # Swagger/OpenAPI schema view
 schema_view = get_schema_view(
     openapi.Info(
@@ -147,6 +197,7 @@ urlpatterns = [
     path('', root_view, name='root'),
     path('debug/', debug_settings, name='debug'),
     path('test-mongo/', test_mongo_connection, name='test_mongo'),
+    path('inspect-db/', inspect_database, name='inspect_db'),
     path('admin/', admin.site.urls),
     path('api/', include('bus.urls')),
     
