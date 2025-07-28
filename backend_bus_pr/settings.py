@@ -85,7 +85,7 @@ WSGI_APPLICATION = 'backend_bus_pr.wsgi.application'
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
 
 # MongoDB Atlas Configuration
-MONGO_URI = os.getenv("MONGO_URI", "mongodb+srv://mohammad:pNWkipuHQAyM6Xjl@cluster0.pitnles.mongodb.net/bus_atlas")
+MONGO_URI = os.getenv("MONGO_URI")
 MONGODB_DATABASE = config('MONGODB_DATABASE', default='bus_atlas')
 MONGODB_COLLECTION = config('MONGODB_COLLECTION', default='north_dwar')
 
