@@ -113,13 +113,13 @@ class BusRouteService:
 
     def connect_to_mongodb(self):
         """
-        Connect to MongoDB Atlas with fallback methods for Railway deployment.
+        Connect to MongoDB Atlas with Railway-compatible configuration.
         """
         connection_string = settings.MONGO_URI
         
-        # Try different connection methods
+        # Try different connection string modifications for Railway
         connection_methods = [
-            # Method 1: Basic connection
+            # Method 1: Original connection string
             lambda: MongoClient(
                 connection_string,
                 serverSelectionTimeoutMS=30000,
@@ -128,27 +128,30 @@ class BusRouteService:
                 maxPoolSize=10,
                 minPoolSize=1
             ),
-            # Method 2: With explicit SSL parameters
+            # Method 2: Add directConnection=true to force direct connection
             lambda: MongoClient(
-                connection_string,
+                connection_string + "&directConnection=true" if "?" in connection_string else connection_string + "?directConnection=true",
                 serverSelectionTimeoutMS=30000,
                 connectTimeoutMS=20000,
                 socketTimeoutMS=20000,
                 maxPoolSize=10,
-                minPoolSize=1,
-                ssl=True,
-                ssl_cert_reqs=None
+                minPoolSize=1
             ),
-            # Method 3: With TLS parameters
+            # Method 3: Use connection string with minimal parameters
             lambda: MongoClient(
                 connection_string,
+                serverSelectionTimeoutMS=10000,
+                connectTimeoutMS=10000,
+                socketTimeoutMS=10000
+            ),
+            # Method 4: Try with authSource parameter
+            lambda: MongoClient(
+                connection_string + "&authSource=admin" if "?" in connection_string else connection_string + "?authSource=admin",
                 serverSelectionTimeoutMS=30000,
                 connectTimeoutMS=20000,
                 socketTimeoutMS=20000,
-                maxPoolSize=10,
-                minPoolSize=1,
-                tls=True,
-                tlsAllowInvalidCertificates=True
+                maxPoolSize=5,
+                minPoolSize=1
             )
         ]
         
@@ -157,8 +160,8 @@ class BusRouteService:
                 logger.info(f"Trying MongoDB connection method {i}")
                 self.client = method()
                 
-                # Test the connection
-                self.client.admin.command('ping')
+                # Test the connection with a shorter timeout
+                self.client.admin.command('ping', serverSelectionTimeoutMS=5000)
                 self.db = self.client[settings.MONGODB_DATABASE]
                 self.collection = self.db[settings.MONGODB_COLLECTION]
                 
@@ -174,8 +177,40 @@ class BusRouteService:
                         pass
                 continue
         
+        # If all methods failed, try one last approach with a different connection string format
+        try:
+            logger.info("Trying alternative connection string format")
+            # Try to parse the connection string and modify it
+            if "mongodb+srv://" in connection_string:
+                # Convert to standard mongodb:// format if possible
+                # This is a fallback approach
+                modified_connection = connection_string.replace("mongodb+srv://", "mongodb://")
+                self.client = MongoClient(
+                    modified_connection,
+                    serverSelectionTimeoutMS=15000,
+                    connectTimeoutMS=10000,
+                    socketTimeoutMS=10000,
+                    maxPoolSize=5,
+                    minPoolSize=1
+                )
+                
+                self.client.admin.command('ping', serverSelectionTimeoutMS=5000)
+                self.db = self.client[settings.MONGODB_DATABASE]
+                self.collection = self.db[settings.MONGODB_COLLECTION]
+                
+                logger.info("Successfully connected using alternative connection string format")
+                return
+                
+        except Exception as e:
+            logger.warning(f"Alternative connection string format failed: {e}")
+            if self.client:
+                try:
+                    self.client.close()
+                except:
+                    pass
+        
         # If all methods failed
-        error_msg = "All MongoDB connection methods failed"
+        error_msg = "All MongoDB connection methods failed. Railway may have SSL/TLS restrictions with MongoDB Atlas."
         logger.error(error_msg)
         raise DatabaseConnectionError(error_msg)
     
