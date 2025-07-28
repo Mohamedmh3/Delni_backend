@@ -12,6 +12,8 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 
 from pathlib import Path
 from decouple import config
+import os
+from dotenv import load_dotenv
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -79,11 +81,16 @@ WSGI_APPLICATION = 'backend_bus_pr.wsgi.application'
 
 # Database
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
+load_dotenv()
+MONGO_URI = os.getenv("MONGO_URI")
 
 DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
+'default': {
+        'ENGINE': 'djongo',
+        'NAME': 'railway',
+        'CLIENT': {
+            'host': MONGO_URI
+        }
     }
 }
 
