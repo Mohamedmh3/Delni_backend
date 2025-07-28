@@ -116,7 +116,7 @@ class BusRouteService:
         Establish MongoDB connection and initialize database and collection.
         """
         try:
-            self.client = MongoClient(settings.MONGODB_URI)
+            self.client = MongoClient(settings.MONGO_URI)
             self.db = self.client[settings.MONGODB_DATABASE]
             self.collection = self.db[settings.MONGODB_COLLECTION]
             logger.info(f"Successfully connected to MongoDB: {settings.MONGODB_DATABASE}.{settings.MONGODB_COLLECTION}")

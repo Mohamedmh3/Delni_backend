@@ -35,7 +35,7 @@ class Command(BaseCommand):
         # Check 1: Django settings
         total_checks += 1
         try:
-            if hasattr(settings, 'MONGODB_URI'):
+            if hasattr(settings, 'MONGO_URI'):
                 self.stdout.write('✅ MongoDB URI configured')
                 checks_passed += 1
             else:
@@ -112,7 +112,7 @@ class Command(BaseCommand):
         total_checks += 1
         try:
             required_settings = [
-                'MONGODB_URI',
+                'MONGO_URI',
                 'MONGODB_DATABASE', 
                 'MONGODB_COLLECTION',
                 'TAXI_SUGGESTION_DISTANCE'

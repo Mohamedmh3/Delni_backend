@@ -160,7 +160,7 @@ class DatabaseMonitor:
     def _connect_mongodb(self):
         """Connect to MongoDB for monitoring."""
         try:
-            self.mongo_client = MongoClient(settings.MONGODB_URI)
+            self.mongo_client = MongoClient(settings.MONGO_URI)
             self.db = self.mongo_client[settings.MONGODB_DATABASE]
             self.collection = self.db[settings.MONGODB_COLLECTION]
         except Exception as e:

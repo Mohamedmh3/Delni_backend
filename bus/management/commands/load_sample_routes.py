@@ -23,7 +23,7 @@ class Command(BaseCommand):
         )
         
         # Connect to MongoDB
-        client = MongoClient(settings.MONGODB_URI)
+        client = MongoClient(settings.MONGO_URI)
         db = client[settings.MONGODB_DATABASE]
         collection = db[settings.MONGODB_COLLECTION]
         
