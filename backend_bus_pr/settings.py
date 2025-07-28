@@ -13,10 +13,13 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 from pathlib import Path
 from decouple import config
 import os
+from dotenv import load_dotenv
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
+# Load environment variables
+load_dotenv()
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
@@ -81,9 +84,9 @@ WSGI_APPLICATION = 'backend_bus_pr.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
 
-# MongoDB Configuration
-MONGO_URI = config('MONGO_URI', default='mongodb://localhost:27017/')
-MONGODB_DATABASE = config('MONGODB_DATABASE', default='BUS')
+# MongoDB Atlas Configuration
+MONGO_URI = os.getenv("MONGO_URI", "mongodb+srv://mohammad:pNWkipuHQAyM6Xjl@cluster0.pitnles.mongodb.net/bus_atlas")
+MONGODB_DATABASE = config('MONGODB_DATABASE', default='bus_atlas')
 MONGODB_COLLECTION = config('MONGODB_COLLECTION', default='north_dwar')
 
 # Use SQLite for Django ORM (since we're using pymongo directly for MongoDB)
