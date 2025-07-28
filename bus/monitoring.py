@@ -158,33 +158,19 @@ class DatabaseMonitor:
         self._connect_mongodb()
     
     def _connect_mongodb(self):
-        """Connect to MongoDB with proper TLS configuration."""
+        """Connect to MongoDB with simplified configuration for Railway deployment."""
         try:
             connection_string = settings.MONGO_URI
             
-            # For MongoDB Atlas, we need to ensure proper TLS configuration
-            # Remove deprecated ssl_cert_reqs parameter and use modern TLS settings
-            if "mongodb+srv://" in connection_string:
-                # MongoDB Atlas connection string already includes necessary parameters
-                # Just ensure we have retryWrites and w=majority for replica sets
-                if "?" not in connection_string:
-                    connection_string += "?retryWrites=true&w=majority"
-                elif "retryWrites=true" not in connection_string:
-                    connection_string += "&retryWrites=true&w=majority"
-
+            # Use minimal configuration for Railway deployment
+            # Let pymongo handle SSL/TLS automatically
             self.client = MongoClient(
                 connection_string,
                 serverSelectionTimeoutMS=30000,
                 connectTimeoutMS=20000,
                 socketTimeoutMS=20000,
                 maxPoolSize=10,
-                minPoolSize=1,
-                # Use modern TLS configuration
-                tls=True,
-                tlsAllowInvalidCertificates=False,
-                tlsAllowInvalidHostnames=False,
-                retryWrites=True,
-                w='majority'
+                minPoolSize=1
             )
             
             # Test the connection
