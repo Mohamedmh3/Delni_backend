@@ -497,16 +497,26 @@ def health_check(request):
     - API status and basic information
     """
     try:
-        service = BusRouteService()
-        stats = service.get_route_statistics()
-        service.close_connection()
+        from .mongo import db, collection
+        
+        if db is None or collection is None:
+            return Response({
+                "status": "unhealthy",
+                "error": "MongoDB not initialized"
+            }, status=status.HTTP_503_SERVICE_UNAVAILABLE)
+        
+        # Test MongoDB connection
+        db.list_collection_names()
+        
+        # Get basic stats
+        total_routes = collection.count_documents({})
         
         return Response({
             "status": "healthy",
             "service": "Syrian Bus Route Assistant API",
             "version": "1.0.0",
-            "database_connected": "error" not in stats,
-            "total_routes": stats.get("total_routes", 0)
+            "database_connected": True,
+            "total_routes": total_routes
         })
         
     except Exception as e:
@@ -524,10 +534,23 @@ def diagnostics(request):
     Returns environment, settings, and sample route data.
     """
     try:
-        service = BusRouteService()
-        stats = service.get_route_statistics()
-        sample_routes = service.find_routes([36.263166, 33.510846], [36.323967, 33.531126], max_routes=1)
-        service.close_connection()
+        from .mongo import db, collection, mongo_client
+        
+        if db is None or collection is None:
+            return Response({
+                "status": "error",
+                "error": "MongoDB not initialized"
+            }, status=500)
+        
+        # Test MongoDB connection
+        db.list_collection_names()
+        
+        # Get basic stats
+        total_routes = collection.count_documents({})
+        
+        # Get a sample route
+        sample_route = collection.find_one({})
+        
         return Response({
             "status": "ok",
             "settings": {
@@ -535,8 +558,10 @@ def diagnostics(request):
                 "mongodb_database": getattr(settings, "MONGODB_DATABASE", None),
                 "mongodb_collection": getattr(settings, "MONGODB_COLLECTION", None),
             },
-            "statistics": stats,
-            "sample_route": clean_mongo_document(sample_routes[0]) if sample_routes else None
+            "statistics": {
+                "total_routes": total_routes
+            },
+            "sample_route": clean_mongo_document(sample_route) if sample_route else None
         })
     except Exception as e:
         logger.error(f"Error in diagnostics: {e}")

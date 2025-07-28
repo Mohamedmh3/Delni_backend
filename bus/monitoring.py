@@ -151,112 +151,17 @@ class PerformanceMonitor:
             return 0.0
 
 class DatabaseMonitor:
-    """Monitor database performance and health."""
-    
     def __init__(self):
-        self.mongo_client = None
-        self._connect_mongodb()
-    
-    def _connect_mongodb(self):
-        """Connect to MongoDB with Railway-compatible configuration."""
-        connection_string = settings.MONGO_URI
+        from .mongo import mongo_client, db, collection
         
-        # Try different connection string modifications for Railway
-        connection_methods = [
-            # Method 1: Original connection string
-            lambda: MongoClient(
-                connection_string,
-                serverSelectionTimeoutMS=30000,
-                connectTimeoutMS=20000,
-                socketTimeoutMS=20000,
-                maxPoolSize=10,
-                minPoolSize=1
-            ),
-            # Method 2: Add directConnection=true to force direct connection
-            lambda: MongoClient(
-                connection_string + "&directConnection=true" if "?" in connection_string else connection_string + "?directConnection=true",
-                serverSelectionTimeoutMS=30000,
-                connectTimeoutMS=20000,
-                socketTimeoutMS=20000,
-                maxPoolSize=10,
-                minPoolSize=1
-            ),
-            # Method 3: Use connection string with minimal parameters
-            lambda: MongoClient(
-                connection_string,
-                serverSelectionTimeoutMS=10000,
-                connectTimeoutMS=10000,
-                socketTimeoutMS=10000
-            ),
-            # Method 4: Try with authSource parameter
-            lambda: MongoClient(
-                connection_string + "&authSource=admin" if "?" in connection_string else connection_string + "?authSource=admin",
-                serverSelectionTimeoutMS=30000,
-                connectTimeoutMS=20000,
-                socketTimeoutMS=20000,
-                maxPoolSize=5,
-                minPoolSize=1
-            )
-        ]
-        
-        for i, method in enumerate(connection_methods, 1):
-            try:
-                logger.info(f"Trying MongoDB connection method {i} for monitoring")
-                self.client = method()
-                
-                # Test the connection with a shorter timeout
-                self.client.admin.command('ping', serverSelectionTimeoutMS=5000)
-                self.db = self.client[settings.MONGODB_DATABASE]
-                self.collection = self.db[settings.MONGODB_COLLECTION]
-                
-                logger.info(f"Successfully connected to MongoDB Atlas for monitoring using method {i}")
-                return
-                
-            except Exception as e:
-                logger.warning(f"MongoDB connection method {i} failed for monitoring: {e}")
-                if self.client:
-                    try:
-                        self.client.close()
-                    except:
-                        pass
-                continue
-        
-        # If all methods failed, try one last approach with a different connection string format
-        try:
-            logger.info("Trying alternative connection string format for monitoring")
-            # Try to parse the connection string and modify it
-            if "mongodb+srv://" in connection_string:
-                # Convert to standard mongodb:// format if possible
-                # This is a fallback approach
-                modified_connection = connection_string.replace("mongodb+srv://", "mongodb://")
-                self.client = MongoClient(
-                    modified_connection,
-                    serverSelectionTimeoutMS=15000,
-                    connectTimeoutMS=10000,
-                    socketTimeoutMS=10000,
-                    maxPoolSize=5,
-                    minPoolSize=1
-                )
-                
-                self.client.admin.command('ping', serverSelectionTimeoutMS=5000)
-                self.db = self.client[settings.MONGODB_DATABASE]
-                self.collection = self.db[settings.MONGODB_COLLECTION]
-                
-                logger.info("Successfully connected using alternative connection string format for monitoring")
-                return
-                
-        except Exception as e:
-            logger.warning(f"Alternative connection string format failed for monitoring: {e}")
-            if self.client:
-                try:
-                    self.client.close()
-                except:
-                    pass
-        
-        # If all methods failed
-        error_msg = "All MongoDB connection methods failed for monitoring. Railway may have SSL/TLS restrictions with MongoDB Atlas."
-        logger.error(error_msg)
-        raise DatabaseConnectionError(error_msg)
+        if mongo_client is None or db is None or collection is None:
+            self.client = None
+            self.db = None
+            self.collection = None
+        else:
+            self.client = mongo_client
+            self.db = db
+            self.collection = collection
     
     def get_database_metrics(self) -> Dict[str, Any]:
         """
@@ -266,7 +171,7 @@ class DatabaseMonitor:
             Dictionary containing database metrics
         """
         try:
-            if not self.mongo_client:
+            if not self.client:
                 return {'error': 'MongoDB not connected'}
             
             # Basic collection stats
@@ -276,7 +181,7 @@ class DatabaseMonitor:
             db_stats = self.db.command('dbStats')
             
             # Connection info
-            server_info = self.mongo_client.server_info()
+            server_info = self.client.server_info()
             
             # Index usage
             index_stats = self.collection.aggregate([
@@ -316,7 +221,7 @@ class DatabaseMonitor:
             Dictionary containing connection test results
         """
         try:
-            if not self.mongo_client:
+            if not self.client:
                 return {'status': 'error', 'message': 'MongoDB not connected'}
             
             start_time = time.time()
