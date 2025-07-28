@@ -130,5 +130,4 @@ tests/
 test_*
 
 # Documentation
-README.md
 docs/ 
