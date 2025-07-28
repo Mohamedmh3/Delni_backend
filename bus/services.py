@@ -116,7 +116,31 @@ class BusRouteService:
         Establish MongoDB connection and initialize database and collection.
         """
         try:
-            self.client = MongoClient(settings.MONGO_URI)
+            # Add SSL parameters to handle Atlas connection issues
+            from pymongo import MongoClient
+            import ssl
+            
+            # Parse the connection string and add SSL parameters
+            connection_string = settings.MONGO_URI
+            if "mongodb+srv://" in connection_string:
+                # For MongoDB Atlas, add SSL parameters
+                if "?" not in connection_string:
+                    connection_string += "?ssl=true&ssl_cert_reqs=CERT_NONE&retryWrites=true&w=majority"
+                else:
+                    connection_string += "&ssl=true&ssl_cert_reqs=CERT_NONE&retryWrites=true&w=majority"
+            
+            self.client = MongoClient(
+                connection_string,
+                serverSelectionTimeoutMS=30000,  # 30 seconds
+                connectTimeoutMS=20000,          # 20 seconds
+                socketTimeoutMS=20000,           # 20 seconds
+                maxPoolSize=10,
+                minPoolSize=1
+            )
+            
+            # Test the connection
+            self.client.admin.command('ping')
+            
             self.db = self.client[settings.MONGODB_DATABASE]
             self.collection = self.db[settings.MONGODB_COLLECTION]
             logger.info(f"Successfully connected to MongoDB: {settings.MONGODB_DATABASE}.{settings.MONGODB_COLLECTION}")
