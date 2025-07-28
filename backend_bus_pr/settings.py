@@ -87,7 +87,7 @@ MONGO_URI = os.getenv("MONGO_URI")
 DATABASES = {
 'default': {
         'ENGINE': 'djongo',
-        'NAME': 'railway',
+        'NAME': 'bus_atlas',
         'CLIENT': {
             'host': MONGO_URI
         }
