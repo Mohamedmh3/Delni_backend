@@ -17,6 +17,7 @@ Including another URLconf
 from django.contrib import admin
 from django.urls import path, include
 from django.http import JsonResponse
+from django.conf import settings
 from drf_yasg.views import get_schema_view
 from drf_yasg import openapi
 from rest_framework import permissions
@@ -32,6 +33,20 @@ def root_view(request):
             'health': '/api/health/',
             'swagger': '/swagger/',
             'admin': '/admin/'
+        }
+    })
+
+def debug_settings(request):
+    """Debug endpoint to check settings"""
+    return JsonResponse({
+        'status': 'debug',
+        'settings': {
+            'MONGO_URI': hasattr(settings, 'MONGO_URI'),
+            'MONGO_URI_value': getattr(settings, 'MONGO_URI', 'NOT_SET'),
+            'MONGODB_URI': hasattr(settings, 'MONGODB_URI'),
+            'MONGODB_DATABASE': hasattr(settings, 'MONGODB_DATABASE'),
+            'MONGODB_COLLECTION': hasattr(settings, 'MONGODB_COLLECTION'),
+            'DEBUG': getattr(settings, 'DEBUG', 'NOT_SET'),
         }
     })
 
@@ -65,6 +80,7 @@ schema_view = get_schema_view(
 
 urlpatterns = [
     path('', root_view, name='root'),
+    path('debug/', debug_settings, name='debug'),
     path('admin/', admin.site.urls),
     path('api/', include('bus.urls')),
     
