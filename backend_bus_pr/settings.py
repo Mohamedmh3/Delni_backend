@@ -13,7 +13,6 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 from pathlib import Path
 from decouple import config
 import os
-from dotenv import load_dotenv
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -81,23 +80,19 @@ WSGI_APPLICATION = 'backend_bus_pr.wsgi.application'
 
 # Database
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
-load_dotenv()
-MONGO_URI = os.getenv("MONGO_URI")
-
-DATABASES = {
-'default': {
-        'ENGINE': 'djongo',
-        'NAME': 'bus_atlas',
-        'CLIENT': {
-            'host': MONGO_URI
-        }
-    }
-}
 
 # MongoDB Configuration
-MONGODB_URI = config('MONGODB_URI', default='mongodb://localhost:27017/')
+MONGO_URI = config('MONGO_URI', default='mongodb://localhost:27017/')
 MONGODB_DATABASE = config('MONGODB_DATABASE', default='BUS')
 MONGODB_COLLECTION = config('MONGODB_COLLECTION', default='north_dwar')
+
+# Use SQLite for Django ORM (since we're using pymongo directly for MongoDB)
+DATABASES = {
+    'default': {
+        'ENGINE': 'django.db.backends.sqlite3',
+        'NAME': BASE_DIR / 'db.sqlite3',
+    }
+}
 
 
 # Password validation
@@ -227,18 +222,6 @@ CACHES = {
 SESSION_COOKIE_AGE = 3600  # 1 hour
 SESSION_COOKIE_SECURE = not DEBUG
 CSRF_COOKIE_SECURE = not DEBUG
-
-# Database connection pooling (for production)
-if not DEBUG:
-    DATABASES = {
-        'default': {
-            'ENGINE': 'django.db.backends.sqlite3',
-            'NAME': BASE_DIR / 'db.sqlite3',
-            'OPTIONS': {
-                'timeout': 20,
-            }
-        }
-    }
 
 # Additional logging for production
 if not DEBUG:
