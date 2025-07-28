@@ -8,3 +8,4 @@ drf-yasg==1.21.7
 gunicorn==21.2.0
 dnspython==2.7.0
 python-dotenv==1.0.0
+setuptools>=65.0.0
