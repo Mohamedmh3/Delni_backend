@@ -158,31 +158,70 @@ class DatabaseMonitor:
         self._connect_mongodb()
     
     def _connect_mongodb(self):
-        """Connect to MongoDB with simplified configuration for Railway deployment."""
-        try:
-            connection_string = settings.MONGO_URI
-            
-            # Use minimal configuration for Railway deployment
-            # Let pymongo handle SSL/TLS automatically
-            self.client = MongoClient(
+        """Connect to MongoDB with fallback methods for Railway deployment."""
+        connection_string = settings.MONGO_URI
+        
+        # Try different connection methods
+        connection_methods = [
+            # Method 1: Basic connection
+            lambda: MongoClient(
                 connection_string,
                 serverSelectionTimeoutMS=30000,
                 connectTimeoutMS=20000,
                 socketTimeoutMS=20000,
                 maxPoolSize=10,
                 minPoolSize=1
+            ),
+            # Method 2: With explicit SSL parameters
+            lambda: MongoClient(
+                connection_string,
+                serverSelectionTimeoutMS=30000,
+                connectTimeoutMS=20000,
+                socketTimeoutMS=20000,
+                maxPoolSize=10,
+                minPoolSize=1,
+                ssl=True,
+                ssl_cert_reqs=None
+            ),
+            # Method 3: With TLS parameters
+            lambda: MongoClient(
+                connection_string,
+                serverSelectionTimeoutMS=30000,
+                connectTimeoutMS=20000,
+                socketTimeoutMS=20000,
+                maxPoolSize=10,
+                minPoolSize=1,
+                tls=True,
+                tlsAllowInvalidCertificates=True
             )
-            
-            # Test the connection
-            self.client.admin.command('ping')
-            self.db = self.client[settings.MONGODB_DATABASE]
-            self.collection = self.db[settings.MONGODB_COLLECTION]
-            
-            logger.info("Successfully connected to MongoDB Atlas for monitoring")
-            
-        except Exception as e:
-            logger.error(f"MongoDB connection failed in monitoring: {e}")
-            raise DatabaseConnectionError(f"Could not connect to MongoDB: {e}")
+        ]
+        
+        for i, method in enumerate(connection_methods, 1):
+            try:
+                logger.info(f"Trying MongoDB connection method {i} for monitoring")
+                self.client = method()
+                
+                # Test the connection
+                self.client.admin.command('ping')
+                self.db = self.client[settings.MONGODB_DATABASE]
+                self.collection = self.db[settings.MONGODB_COLLECTION]
+                
+                logger.info(f"Successfully connected to MongoDB Atlas for monitoring using method {i}")
+                return
+                
+            except Exception as e:
+                logger.warning(f"MongoDB connection method {i} failed for monitoring: {e}")
+                if self.client:
+                    try:
+                        self.client.close()
+                    except:
+                        pass
+                continue
+        
+        # If all methods failed
+        error_msg = "All MongoDB connection methods failed for monitoring"
+        logger.error(error_msg)
+        raise DatabaseConnectionError(error_msg)
     
     def get_database_metrics(self) -> Dict[str, Any]:
         """
