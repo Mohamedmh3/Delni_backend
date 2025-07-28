@@ -113,46 +113,46 @@ class BusRouteService:
 
     def connect_to_mongodb(self):
         """
-        Establish MongoDB connection and initialize database and collection.
+        Connect to MongoDB Atlas with proper SSL/TLS configuration.
         """
         try:
-            # Add SSL parameters to handle Atlas connection issues
-            from pymongo import MongoClient
-            import ssl
-            
-            # Parse the connection string and add SSL parameters
             connection_string = settings.MONGO_URI
-            if "mongodb+srv://" in connection_string:
-                # For MongoDB Atlas, add SSL parameters
-                if "?" not in connection_string:
-                    connection_string += "?ssl=true&ssl_cert_reqs=CERT_NONE&retryWrites=true&w=majority"
-                else:
-                    connection_string += "&ssl=true&ssl_cert_reqs=CERT_NONE&retryWrites=true&w=majority"
             
+            # For MongoDB Atlas, we need to ensure proper TLS configuration
+            # Remove deprecated ssl_cert_reqs parameter and use modern TLS settings
+            if "mongodb+srv://" in connection_string:
+                # MongoDB Atlas connection string already includes necessary parameters
+                # Just ensure we have retryWrites and w=majority for replica sets
+                if "?" not in connection_string:
+                    connection_string += "?retryWrites=true&w=majority"
+                elif "retryWrites=true" not in connection_string:
+                    connection_string += "&retryWrites=true&w=majority"
+
             self.client = MongoClient(
                 connection_string,
-                serverSelectionTimeoutMS=30000,  # 30 seconds
-                connectTimeoutMS=20000,          # 20 seconds
-                socketTimeoutMS=20000,           # 20 seconds
+                serverSelectionTimeoutMS=30000,
+                connectTimeoutMS=20000,
+                socketTimeoutMS=20000,
                 maxPoolSize=10,
-                minPoolSize=1
+                minPoolSize=1,
+                # Use modern TLS configuration
+                tls=True,
+                tlsAllowInvalidCertificates=False,
+                tlsAllowInvalidHostnames=False,
+                retryWrites=True,
+                w='majority'
             )
             
             # Test the connection
             self.client.admin.command('ping')
-            
             self.db = self.client[settings.MONGODB_DATABASE]
             self.collection = self.db[settings.MONGODB_COLLECTION]
-            logger.info(f"Successfully connected to MongoDB: {settings.MONGODB_DATABASE}.{settings.MONGODB_COLLECTION}")
-        except ConnectionFailure as e:
-            logger.error(f"MongoDB connection failed: {e}")
-            raise DatabaseConnectionError("Could not connect to MongoDB")
-        except ServerSelectionTimeoutError as e:
-            logger.error(f"MongoDB server selection timed out: {e}")
-            raise DatabaseConnectionError("MongoDB server selection timed out")
+            
+            logger.info("Successfully connected to MongoDB Atlas")
+            
         except Exception as e:
-            logger.error(f"An unexpected error occurred during MongoDB connection: {e}")
-            raise DatabaseConnectionError(f"An unexpected error occurred: {e}")
+            logger.error(f"MongoDB connection failed: {e}")
+            raise DatabaseConnectionError(f"Could not connect to MongoDB: {e}")
     
     def distance_between_points(self, p1: List[float], p2: List[float]) -> float:
         """

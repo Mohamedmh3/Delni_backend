@@ -158,37 +158,45 @@ class DatabaseMonitor:
         self._connect_mongodb()
     
     def _connect_mongodb(self):
-        """Connect to MongoDB for monitoring."""
+        """Connect to MongoDB with proper TLS configuration."""
         try:
-            # Add SSL parameters to handle Atlas connection issues
-            from pymongo import MongoClient
-            import ssl
-            
-            # Parse the connection string and add SSL parameters
             connection_string = settings.MONGO_URI
-            if "mongodb+srv://" in connection_string:
-                # For MongoDB Atlas, add SSL parameters
-                if "?" not in connection_string:
-                    connection_string += "?ssl=true&ssl_cert_reqs=CERT_NONE&retryWrites=true&w=majority"
-                else:
-                    connection_string += "&ssl=true&ssl_cert_reqs=CERT_NONE&retryWrites=true&w=majority"
             
-            self.mongo_client = MongoClient(
+            # For MongoDB Atlas, we need to ensure proper TLS configuration
+            # Remove deprecated ssl_cert_reqs parameter and use modern TLS settings
+            if "mongodb+srv://" in connection_string:
+                # MongoDB Atlas connection string already includes necessary parameters
+                # Just ensure we have retryWrites and w=majority for replica sets
+                if "?" not in connection_string:
+                    connection_string += "?retryWrites=true&w=majority"
+                elif "retryWrites=true" not in connection_string:
+                    connection_string += "&retryWrites=true&w=majority"
+
+            self.client = MongoClient(
                 connection_string,
-                serverSelectionTimeoutMS=30000,  # 30 seconds
-                connectTimeoutMS=20000,          # 20 seconds
-                socketTimeoutMS=20000,           # 20 seconds
+                serverSelectionTimeoutMS=30000,
+                connectTimeoutMS=20000,
+                socketTimeoutMS=20000,
                 maxPoolSize=10,
-                minPoolSize=1
+                minPoolSize=1,
+                # Use modern TLS configuration
+                tls=True,
+                tlsAllowInvalidCertificates=False,
+                tlsAllowInvalidHostnames=False,
+                retryWrites=True,
+                w='majority'
             )
             
             # Test the connection
-            self.mongo_client.admin.command('ping')
-            
-            self.db = self.mongo_client[settings.MONGODB_DATABASE]
+            self.client.admin.command('ping')
+            self.db = self.client[settings.MONGODB_DATABASE]
             self.collection = self.db[settings.MONGODB_COLLECTION]
+            
+            logger.info("Successfully connected to MongoDB Atlas for monitoring")
+            
         except Exception as e:
-            logger.error(f"Error connecting to MongoDB for monitoring: {e}")
+            logger.error(f"MongoDB connection failed in monitoring: {e}")
+            raise DatabaseConnectionError(f"Could not connect to MongoDB: {e}")
     
     def get_database_metrics(self) -> Dict[str, Any]:
         """
