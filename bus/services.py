@@ -21,14 +21,12 @@ logger = logging.getLogger(__name__)
 
 class BusRouteService:
     def __init__(self):
-        from .mongo import mongo_client, db, collection
+        from .mongo import initialize_mongo
         
-        if mongo_client is None or db is None or collection is None:
-            raise DatabaseConnectionError("MongoDB connection not available")
-        
-        self.client = mongo_client
-        self.db = db
-        self.collection = collection
+        try:
+            self.client, self.db, self.collection = initialize_mongo()
+        except Exception as e:
+            raise DatabaseConnectionError(f"MongoDB connection not available: {e}")
         
         # Cache configuration
         self.cache_timeout = getattr(settings, 'CACHE_TIMEOUT', 300)  # 5 minutes default

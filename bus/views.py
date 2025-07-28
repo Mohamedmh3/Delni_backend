@@ -497,16 +497,14 @@ def health_check(request):
     - API status and basic information
     """
     try:
-        from .mongo import db, collection
+        from .mongo import initialize_mongo
+        from pymongo.errors import ServerSelectionTimeoutError, ConnectionFailure
         
-        if db is None or collection is None:
-            return Response({
-                "status": "unhealthy",
-                "error": "MongoDB not initialized"
-            }, status=status.HTTP_503_SERVICE_UNAVAILABLE)
+        # Initialize MongoDB connection
+        client, db, collection = initialize_mongo()
         
-        # Test MongoDB connection
-        db.list_collection_names()
+        # Test MongoDB connection by listing collections
+        collections = db.list_collection_names()
         
         # Get basic stats
         total_routes = collection.count_documents({})
@@ -516,14 +514,29 @@ def health_check(request):
             "service": "Syrian Bus Route Assistant API",
             "version": "1.0.0",
             "database_connected": True,
+            "mongodb_collections": collections,
             "total_routes": total_routes
         })
+        
+    except ServerSelectionTimeoutError as e:
+        logger.error(f"MongoDB connection timeout in health check: {e}")
+        return Response({
+            "status": "unhealthy",
+            "error": "MongoDB connection timeout"
+        }, status=status.HTTP_503_SERVICE_UNAVAILABLE)
+        
+    except ConnectionFailure as e:
+        logger.error(f"MongoDB connection failure in health check: {e}")
+        return Response({
+            "status": "unhealthy",
+            "error": "MongoDB connection failed"
+        }, status=status.HTTP_503_SERVICE_UNAVAILABLE)
         
     except Exception as e:
         logger.error(f"Error in health_check: {e}")
         return Response({
             "status": "unhealthy",
-            "error": "Database connection failed"
+            "error": f"Database connection failed: {str(e)}"
         }, status=status.HTTP_503_SERVICE_UNAVAILABLE)
 
 @api_view(['GET'])
@@ -534,16 +547,14 @@ def diagnostics(request):
     Returns environment, settings, and sample route data.
     """
     try:
-        from .mongo import db, collection, mongo_client
+        from .mongo import initialize_mongo
+        from pymongo.errors import ServerSelectionTimeoutError, ConnectionFailure
         
-        if db is None or collection is None:
-            return Response({
-                "status": "error",
-                "error": "MongoDB not initialized"
-            }, status=500)
+        # Initialize MongoDB connection
+        client, db, collection = initialize_mongo()
         
-        # Test MongoDB connection
-        db.list_collection_names()
+        # Test MongoDB connection by listing collections
+        collections = db.list_collection_names()
         
         # Get basic stats
         total_routes = collection.count_documents({})
@@ -559,10 +570,26 @@ def diagnostics(request):
                 "mongodb_collection": getattr(settings, "MONGODB_COLLECTION", None),
             },
             "statistics": {
-                "total_routes": total_routes
+                "total_routes": total_routes,
+                "collections": collections
             },
             "sample_route": clean_mongo_document(sample_route) if sample_route else None
         })
+        
+    except ServerSelectionTimeoutError as e:
+        logger.error(f"MongoDB connection timeout in diagnostics: {e}")
+        return Response({
+            "status": "error",
+            "error": "MongoDB connection timeout"
+        }, status=500)
+        
+    except ConnectionFailure as e:
+        logger.error(f"MongoDB connection failure in diagnostics: {e}")
+        return Response({
+            "status": "error",
+            "error": "MongoDB connection failed"
+        }, status=500)
+        
     except Exception as e:
         logger.error(f"Error in diagnostics: {e}")
         return Response({"status": "error", "error": str(e)}, status=500)

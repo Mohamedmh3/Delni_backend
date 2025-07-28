@@ -152,16 +152,15 @@ class PerformanceMonitor:
 
 class DatabaseMonitor:
     def __init__(self):
-        from .mongo import mongo_client, db, collection
+        from .mongo import initialize_mongo
         
-        if mongo_client is None or db is None or collection is None:
+        try:
+            self.client, self.db, self.collection = initialize_mongo()
+        except Exception as e:
+            logger.warning(f"DatabaseMonitor initialization failed: {e}")
             self.client = None
             self.db = None
             self.collection = None
-        else:
-            self.client = mongo_client
-            self.db = db
-            self.collection = collection
     
     def get_database_metrics(self) -> Dict[str, Any]:
         """
