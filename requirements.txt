@@ -5,4 +5,7 @@ geopy==2.4.0
 python-decouple==3.8
 django-cors-headers==4.3.1
 drf-yasg==1.21.7
-gunicorn==21.2.0 
+gunicorn==21.2.0
+djongo==1.6.1
+dnspython==2.3.0
+python-dotenv==1.0.0
