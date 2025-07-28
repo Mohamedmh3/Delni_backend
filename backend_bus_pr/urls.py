@@ -50,6 +50,71 @@ def debug_settings(request):
         }
     })
 
+def test_mongo_connection(request):
+    """Test endpoint to diagnose MongoDB connection issues."""
+    from django.conf import settings
+    from pymongo import MongoClient
+    from pymongo.errors import ServerSelectionTimeoutError, ConnectionFailure
+    import logging
+    
+    logger = logging.getLogger(__name__)
+    
+    try:
+        # Test basic connection
+        logger.info("Testing MongoDB connection from test endpoint...")
+        
+        client = MongoClient(
+            settings.MONGO_URI,
+            serverSelectionTimeoutMS=5000,  # 5 seconds for quick test
+            connectTimeoutMS=5000,
+            socketTimeoutMS=5000
+        )
+        
+        # Test server info
+        server_info = client.server_info()
+        
+        # Test database access
+        db = client[settings.MONGODB_DATABASE]
+        collections = db.list_collection_names()
+        
+        client.close()
+        
+        return JsonResponse({
+            'status': 'success',
+            'message': 'MongoDB connection test successful',
+            'server_version': server_info.get('version', 'Unknown'),
+            'database': settings.MONGODB_DATABASE,
+            'collections': collections,
+            'uri_preview': settings.MONGO_URI[:50] + '...' if len(settings.MONGO_URI) > 50 else settings.MONGO_URI
+        })
+        
+    except ServerSelectionTimeoutError as e:
+        logger.error(f"MongoDB timeout in test: {e}")
+        return JsonResponse({
+            'status': 'error',
+            'error': 'MongoDB connection timeout',
+            'details': str(e),
+            'suggestion': 'Check IP whitelist in MongoDB Atlas or network restrictions'
+        }, status=500)
+        
+    except ConnectionFailure as e:
+        logger.error(f"MongoDB connection failure in test: {e}")
+        return JsonResponse({
+            'status': 'error',
+            'error': 'MongoDB connection failure',
+            'details': str(e),
+            'suggestion': 'Check username/password or network connectivity'
+        }, status=500)
+        
+    except Exception as e:
+        logger.error(f"Unexpected error in MongoDB test: {e}")
+        return JsonResponse({
+            'status': 'error',
+            'error': 'Unexpected error',
+            'details': str(e),
+            'error_type': type(e).__name__
+        }, status=500)
+
 # Swagger/OpenAPI schema view
 schema_view = get_schema_view(
     openapi.Info(
@@ -81,6 +146,7 @@ schema_view = get_schema_view(
 urlpatterns = [
     path('', root_view, name='root'),
     path('debug/', debug_settings, name='debug'),
+    path('test-mongo/', test_mongo_connection, name='test_mongo'),
     path('admin/', admin.site.urls),
     path('api/', include('bus.urls')),
     
