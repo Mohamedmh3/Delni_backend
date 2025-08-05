@@ -36,6 +36,14 @@ def root_view(request):
         }
     })
 
+def health_check(request):
+    """Simple health check endpoint for Railway"""
+    return JsonResponse({
+        'status': 'healthy',
+        'message': 'DELNI Backend API is healthy',
+        'timestamp': '2025-08-05T01:25:00Z'
+    })
+
 def debug_settings(request):
     """Debug endpoint to check settings"""
     return JsonResponse({
@@ -195,6 +203,7 @@ schema_view = get_schema_view(
 
 urlpatterns = [
     path('', root_view, name='root'),
+    path('health/', health_check, name='health_check'),
     path('debug/', debug_settings, name='debug'),
     path('test-mongo/', test_mongo_connection, name='test_mongo'),
     path('inspect-db/', inspect_database, name='inspect_db'),
