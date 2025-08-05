@@ -859,85 +859,108 @@ def suggest_route(request):
             description="Routes found successfully",
             examples={
                 "application/json": {
-                    "fewest_walking": {
-                        "route": ["route_1"],
-                        "legs": [
-                            {
-                                "line_id": "route_1",
-                                "name": "Route 1",
-                                "type": "bus",
-                                "direction": "outbound",
-                                "coordinates": [[36.297949, 33.537161], [36.288504, 33.521974]],
-                                "board": [36.297949, 33.537161],
-                                "alight": [36.288504, 33.521974],
-                                "walk_start": 0.0,
-                                "walk_end": 0.0,
-                                "bus_distance_m": 1500.0,
-                                "walk_time_min": 0.0,
-                                "bus_time_min": 4.5,
-                                "leg_time_min": 4.5
-                            }
-                        ],
-                        "total_walking": 0.0,
-                        "total_time_min": 4.5,
-                        "origin_to_first_bus_walk": 0.0,
-                        "last_bus_to_destination_walk": 0.0,
-                        "final_leg_suggestion": "walk",
-                        "num_transfers": 0
-                    },
-                    "least_transfers": {
-                        "route": ["route_1"],
-                        "legs": [
-                            {
-                                "line_id": "route_1",
-                                "name": "Route 1",
-                                "type": "bus",
-                                "direction": "outbound",
-                                "coordinates": [[36.297949, 33.537161], [36.288504, 33.521974]],
-                                "board": [36.297949, 33.537161],
-                                "alight": [36.288504, 33.521974],
-                                "walk_start": 0.0,
-                                "walk_end": 0.0,
-                                "bus_distance_m": 1500.0,
-                                "walk_time_min": 0.0,
-                                "bus_time_min": 4.5,
-                                "leg_time_min": 4.5
-                            }
-                        ],
-                        "total_walking": 0.0,
-                        "total_time_min": 4.5,
-                        "origin_to_first_bus_walk": 0.0,
-                        "last_bus_to_destination_walk": 0.0,
-                        "final_leg_suggestion": "walk",
-                        "num_transfers": 0
-                    },
-                    "fastest": {
-                        "route": ["route_1"],
-                        "legs": [
-                            {
-                                "line_id": "route_1",
-                                "name": "Route 1",
-                                "type": "bus",
-                                "direction": "outbound",
-                                "coordinates": [[36.297949, 33.537161], [36.288504, 33.521974]],
-                                "board": [36.297949, 33.537161],
-                                "alight": [36.288504, 33.521974],
-                                "walk_start": 0.0,
-                                "walk_end": 0.0,
-                                "bus_distance_m": 1500.0,
-                                "walk_time_min": 0.0,
-                                "bus_time_min": 4.5,
-                                "leg_time_min": 4.5
-                            }
-                        ],
-                        "total_walking": 0.0,
-                        "total_time_min": 4.5,
-                        "origin_to_first_bus_walk": 0.0,
-                        "last_bus_to_destination_walk": 0.0,
-                        "final_leg_suggestion": "walk",
-                        "num_transfers": 0
-                    },
-                    "message": "Best routes found."
+                    "routes": [
+                        {
+                            "route": ["route_1"],
+                            "legs": [
+                                {
+                                    "line_id": "route_1",
+                                    "name": "Route 1",
+                                    "type": "bus",
+                                    "direction": "outbound",
+                                    "coordinates": [[36.297949, 33.537161], [36.288504, 33.521974]],
+                                    "board": [36.297949, 33.537161],
+                                    "alight": [36.288504, 33.521974],
+                                    "walk_start": 0.0,
+                                    "walk_end": 0.0,
+                                    "bus_distance_m": 1500.0,
+                                    "walk_time_min": 0.0,
+                                    "bus_time_min": 4.5,
+                                    "leg_time_min": 4.5
+                                }
+                            ],
+                            "total_walking": 0.0,
+                            "total_time_min": 4.5,
+                            "num_transfers": 0
+                        }
+                    ],
+                    "sorted_by_least_transfers": [
+                        {
+                            "route": ["route_1"],
+                            "legs": [
+                                {
+                                    "line_id": "route_1",
+                                    "name": "Route 1",
+                                    "type": "bus",
+                                    "direction": "outbound",
+                                    "coordinates": [[36.297949, 33.537161], [36.288504, 33.521974]],
+                                    "board": [36.297949, 33.537161],
+                                    "alight": [36.288504, 33.521974],
+                                    "walk_start": 0.0,
+                                    "walk_end": 0.0,
+                                    "bus_distance_m": 1500.0,
+                                    "walk_time_min": 0.0,
+                                    "bus_time_min": 4.5,
+                                    "leg_time_min": 4.5
+                                }
+                            ],
+                            "total_walking": 0.0,
+                            "total_time_min": 4.5,
+                            "num_transfers": 0
+                        }
+                    ],
+                    "sorted_by_fastest": [
+                        {
+                            "route": ["route_1"],
+                            "legs": [
+                                {
+                                    "line_id": "route_1",
+                                    "name": "Route 1",
+                                    "type": "bus",
+                                    "direction": "outbound",
+                                    "coordinates": [[36.297949, 33.537161], [36.288504, 33.521974]],
+                                    "board": [36.297949, 33.537161],
+                                    "alight": [36.288504, 33.521974],
+                                    "walk_start": 0.0,
+                                    "walk_end": 0.0,
+                                    "bus_distance_m": 1500.0,
+                                    "walk_time_min": 0.0,
+                                    "bus_time_min": 4.5,
+                                    "leg_time_min": 4.5
+                                }
+                            ],
+                            "total_walking": 0.0,
+                            "total_time_min": 4.5,
+                            "num_transfers": 0
+                        }
+                    ],
+                    "sorted_by_fewest_walking": [
+                        {
+                            "route": ["route_1"],
+                            "legs": [
+                                {
+                                    "line_id": "route_1",
+                                    "name": "Route 1",
+                                    "type": "bus",
+                                    "direction": "outbound",
+                                    "coordinates": [[36.297949, 33.537161], [36.288504, 33.521974]],
+                                    "board": [36.297949, 33.537161],
+                                    "alight": [36.288504, 33.521974],
+                                    "walk_start": 0.0,
+                                    "walk_end": 0.0,
+                                    "bus_distance_m": 1500.0,
+                                    "walk_time_min": 0.0,
+                                    "bus_time_min": 4.5,
+                                    "leg_time_min": 4.5
+                                }
+                            ],
+                            "total_walking": 0.0,
+                            "total_time_min": 4.5,
+                            "num_transfers": 0
+                        }
+                    ],
+                    "message": "Found 1 unique routes.",
+                    "total_routes_found": 1
                 }
             }
         ),
@@ -1008,73 +1031,7 @@ def graph_route(request):
         # Initialize all_paths list to store all found routes
         all_paths = []
         
-        # 1. Direct route
-        logger.info(f"Checking {len(lines)} lines for direct routes...")
-        for line in lines:
-            coords = line['route']['coordinates']
-            entry, d_entry, entry_index = nearest_point_on_line(origin, coords)
-            exit, d_exit, exit_index = nearest_point_on_line(dest, coords)
-            logger.debug(f"Direct route check: {line['line_id']} entry_dist={d_entry:.2f}m exit_dist={d_exit:.2f}m")
-            if d_entry < 300 and d_exit < 300:
-                if is_valid_route_segment(coords, entry_index, exit_index):
-                    bus_distance = calculate_forward_bus_distance(coords, entry_index, exit_index)
-                    logger.debug(f"Direct route check: {line['line_id']} bus_distance={bus_distance:.2f}m (min required: {min_bus_distance}m)")
-                    if bus_distance >= min_bus_distance:
-                        # Generate polylines for the route
-                        legs = [{
-                            "line_id": line['line_id'],
-                            "name": line.get('name'),
-                            "type": line.get('type'),
-                            "direction": line.get('direction'),
-                            "coordinates": coords,
-                            "board": entry,
-                            "alight": exit,
-                            "entry_point": entry,
-                            "exit_point": exit,
-                            "walk_start": d_entry,
-                            "walk_end": d_exit,
-                            "bus_distance_m": bus_distance,
-                            "walk_time_min": (d_entry + d_exit) / 5000 * 60,
-                            "bus_time_min": bus_distance / 20000 * 60,
-                            "leg_time_min": ((d_entry + d_exit) / 5000 * 60) + (bus_distance / 20000 * 60)
-                        }]
-                        
-                        full_polyline, filtered_polyline = generate_route_polylines(legs, origin, dest)
-                        
-                        # Create enhanced direct route with Västtrafik features
-                        enhanced_direct_route = {
-                            "route": [line['line_id']],
-                            "legs": legs,
-                            "full_polyline": full_polyline,
-                            "filtered_polyline": filtered_polyline,
-                            "total_walking": d_entry + d_exit,
-                            "total_time_min": ((d_entry + d_exit) / 5000 * 60) + (bus_distance / 20000 * 60),
-                            "walking_directions": {},
-                            "accessibility": {
-                                "wheelchair_accessible": True,
-                                "elevator_available": False,
-                                "stairs_count": 0,
-                                "difficulty": "easy"
-                            },
-                            "real_time_info": {
-                                line['line_id']: service.get_real_time_info(line['line_id'])
-                            },
-                            "frequency_info": {
-                                line['line_id']: service.get_line_frequency(line['line_id'])
-                            }
-                        }
-                        logger.info(f"Direct route accepted: {line['line_id']} bus_distance={bus_distance:.2f}m")
-                        # Add direct route to all_paths instead of returning immediately
-                        all_paths.append(enhanced_direct_route)
-                        # Continue to find more routes for alternatives
-                        break
-                    else:
-                        logger.info(f"Direct route rejected: {line['line_id']} bus_distance={bus_distance:.2f}m < {min_bus_distance}m")
-                        continue
-                else:
-                    logger.info(f"Direct route rejected: {line['line_id']} invalid route segment entry_index={entry_index} exit_index={exit_index}")
-                    continue
-        # 2. Multi-leg route (graph search) - prioritize simpler routes
+        # Multi-leg route (graph search) - prioritize simpler routes
         # First try with max_legs=2 (1 transfer max)
         results = bfs_multi_leg(lines, origin, dest, entry_thresh=300, exit_thresh=300, transfer_thresh=400, max_legs=2, min_bus_distance=min_bus_distance)
         
@@ -1294,73 +1251,43 @@ def graph_route(request):
                 }
             })
         
-        # Sort by different criteria for different categories - Västtrafik style
-        # Provide diverse alternatives for each category
+        # Remove direct route logic and just use multi-leg routes (which can include direct routes)
         logger.info(f"Total routes found: {len(all_paths)}")
         for i, route in enumerate(all_paths):
             logger.info(f"Route {i+1}: {route['route']} - transfers: {route.get('num_transfers', 0)}, walking: {route.get('total_walking', 0):.2f}m, time: {route.get('total_time_min', 0):.2f}min")
         
-        fewest_walking_candidates = sorted(all_paths, key=lambda x: (x["total_walking"], x["num_transfers"], x["total_time_min"]))
-        least_transfers_candidates = sorted(all_paths, key=lambda x: (x["num_transfers"], x["total_time_min"], x["total_walking"]))
-        fastest_candidates = sorted(all_paths, key=lambda x: (x["total_time_min"], x["num_transfers"], x["total_walking"]))
-
         if all_paths:
-            # Ensure absolutely no route duplication across all categories and alternatives
-            used_routes = set()
+            # Remove duplicates based on route characteristics
+            unique_routes = []
+            seen_routes = set()
             
-            def get_unique_routes(candidates, max_count):
-                """Get unique routes that haven't been used anywhere else"""
-                unique_routes = []
-                for route in candidates:
-                    # Create a unique key for each route based on its characteristics
-                    route_key = (
-                        tuple(route["route"]),  # Route sequence
-                        tuple(tuple(leg["line_id"]) for leg in route["legs"]),  # Line IDs
-                        route["num_transfers"],  # Number of transfers
-                        round(route["total_walking"], 2),  # Total walking (rounded)
-                        round(route["total_time_min"], 2)  # Total time (rounded)
-                    )
-                    
-                    if route_key not in used_routes:
-                        unique_routes.append(route)
-                        used_routes.add(route_key)
-                        if len(unique_routes) >= max_count:
-                            break
-                return unique_routes
+            for route in all_paths:
+                # Create a unique key for each route
+                route_key = (
+                    tuple(route['route']),
+                    round(route.get('total_walking', 0), 2),
+                    round(route.get('total_time_min', 0), 2),
+                    route.get('num_transfers', 0)
+                )
+                if route_key not in seen_routes:
+                    seen_routes.add(route_key)
+                    unique_routes.append(route)
             
-            # Get unique routes for each category - each route can only appear once across all categories
-            fewest_walking_unique = get_unique_routes(fewest_walking_candidates, max_alternatives + 1)
-            least_transfers_unique = get_unique_routes(least_transfers_candidates, max_alternatives + 1)
-            fastest_unique = get_unique_routes(fastest_candidates, max_alternatives + 1)
+            logger.info(f"Unique routes after deduplication: {len(unique_routes)}")
             
-            # Ensure we have at least one route for each category if available
-            # If a category is empty, try to find any unused route
-            if not fewest_walking_unique and all_paths:
-                fewest_walking_unique = get_unique_routes(all_paths, 1)
-            if not least_transfers_unique and all_paths:
-                least_transfers_unique = get_unique_routes(all_paths, 1)
-            if not fastest_unique and all_paths:
-                fastest_unique = get_unique_routes(all_paths, 1)
+            # Sort routes by different criteria
+            routes_by_least_transfers = sorted(unique_routes, key=lambda x: (x.get("num_transfers", 0), x.get("total_time_min", 0), x.get("total_walking", 0)))
+            routes_by_fastest = sorted(unique_routes, key=lambda x: (x.get("total_time_min", 0), x.get("num_transfers", 0), x.get("total_walking", 0)))
+            routes_by_fewest_walking = sorted(unique_routes, key=lambda x: (x.get("total_walking", 0), x.get("num_transfers", 0), x.get("total_time_min", 0)))
             
-            response_data = {
-                "fewest_walking": {
-                    "best": fewest_walking_unique[0] if fewest_walking_unique else None,
-                    "alternatives": fewest_walking_unique[1:] if len(fewest_walking_unique) > 1 else []
-                },
-                "least_transfers": {
-                    "best": least_transfers_unique[0] if least_transfers_unique else None,
-                    "alternatives": least_transfers_unique[1:] if len(least_transfers_unique) > 1 else []
-                },
-                "fastest": {
-                    "best": fastest_unique[0] if fastest_unique else None,
-                    "alternatives": fastest_unique[1:] if len(fastest_unique) > 1 else []
-                },
-                "message": f"Best routes found with completely unique alternatives (no duplicates across categories).",
-                "total_routes_found": len(all_paths),
-                "unique_routes_used": len(used_routes),
-                "alternatives_per_category": max_alternatives
-            }
-            return Response(response_data)
+            return Response({
+                "routes": unique_routes,
+                "sorted_by_least_transfers": routes_by_least_transfers,
+                "sorted_by_fastest": routes_by_fastest,
+                "sorted_by_fewest_walking": routes_by_fewest_walking,
+                "message": f"Found {len(unique_routes)} unique routes.",
+                "total_routes_found": len(unique_routes)
+            })
         
         # 3. Closest + walk
         for line in lines:
