@@ -267,3 +267,33 @@ BUS_ROUTE_SETTINGS = {
     'BUS_SPEED_KMH': 20.0,
     'TAXI_SUGGESTION_DISTANCE': TAXI_SUGGESTION_DISTANCE,
 }
+
+# Geospatial Query Optimization Settings
+COORDINATE_SIMPLIFICATION_ENABLED = config('COORDINATE_SIMPLIFICATION_ENABLED', default=True, cast=bool)
+TARGET_COORDINATES_PER_ROUTE = config('TARGET_COORDINATES_PER_ROUTE', default=100, cast=int)
+SIMPLIFICATION_TOLERANCE_M = config('SIMPLIFICATION_TOLERANCE_M', default=50, cast=int)
+
+# MongoDB Query Optimization
+USE_BOUNDING_BOX_FILTER = config('USE_BOUNDING_BOX_FILTER', default=True, cast=bool)
+BOUNDING_BOX_BUFFER_KM = config('BOUNDING_BOX_BUFFER_KM', default=5, cast=int)
+MAX_ROUTES_PER_QUERY = config('MAX_ROUTES_PER_QUERY', default=50, cast=int)
+
+# Graph-Based Routing Settings
+TRANSFER_THRESHOLD_M = config('TRANSFER_THRESHOLD_M', default=400, cast=int)
+ENTRY_EXIT_INTERVAL_M = config('ENTRY_EXIT_INTERVAL_M', default=500, cast=int)
+MAX_ROUTE_LEGS = config('MAX_ROUTE_LEGS', default=4, cast=int)
+BOUNDING_BOX_BUFFER_M = config('BOUNDING_BOX_BUFFER_M', default=500, cast=int)
+
+# Comprehensive Routing Settings
+COMPREHENSIVE_ROUTE_LIMIT = config('COMPREHENSIVE_ROUTE_LIMIT', default=50, cast=int)
+DEFAULT_MAX_ROUTES = config('DEFAULT_MAX_ROUTES', default=10, cast=int)
+TAXI_SUGGESTION_THRESHOLD_M = config('TAXI_SUGGESTION_THRESHOLD_M', default=500, cast=int)
+TAXI_RECOMMENDATION_THRESHOLD_M = config('TAXI_RECOMMENDATION_THRESHOLD_M', default=1000, cast=int)
+
+# Caching Settings
+CACHE_ENABLED = config('CACHE_ENABLED', default=True, cast=bool)
+CACHE_TIMEOUT = config('CACHE_TIMEOUT', default=300, cast=int)  # 5 minutes
+
+# Performance Monitoring
+PERFORMANCE_MONITORING_ENABLED = config('PERFORMANCE_MONITORING_ENABLED', default=True, cast=bool)
+QUERY_TIMEOUT_SECONDS = config('QUERY_TIMEOUT_SECONDS', default=30, cast=int)
