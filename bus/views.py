@@ -1310,22 +1310,59 @@ def graph_route(request):
         fastest_candidates = sorted(all_paths, key=lambda x: (x["total_time_min"], x["num_transfers"], x["total_walking"]))
 
         if all_paths:
-            # Return multiple alternatives for each category
+            # Ensure absolutely no route duplication across all categories and alternatives
+            used_routes = set()
+            
+            def get_unique_routes(candidates, max_count):
+                """Get unique routes that haven't been used anywhere else"""
+                unique_routes = []
+                for route in candidates:
+                    # Create a unique key for each route based on its characteristics
+                    route_key = (
+                        tuple(route["route"]),  # Route sequence
+                        tuple(tuple(leg["line_id"]) for leg in route["legs"]),  # Line IDs
+                        route["num_transfers"],  # Number of transfers
+                        round(route["total_walking"], 2),  # Total walking (rounded)
+                        round(route["total_time_min"], 2)  # Total time (rounded)
+                    )
+                    
+                    if route_key not in used_routes:
+                        unique_routes.append(route)
+                        used_routes.add(route_key)
+                        if len(unique_routes) >= max_count:
+                            break
+                return unique_routes
+            
+            # Get unique routes for each category - each route can only appear once across all categories
+            fewest_walking_unique = get_unique_routes(fewest_walking_candidates, max_alternatives + 1)
+            least_transfers_unique = get_unique_routes(least_transfers_candidates, max_alternatives + 1)
+            fastest_unique = get_unique_routes(fastest_candidates, max_alternatives + 1)
+            
+            # Ensure we have at least one route for each category if available
+            # If a category is empty, try to find any unused route
+            if not fewest_walking_unique and all_paths:
+                fewest_walking_unique = get_unique_routes(all_paths, 1)
+            if not least_transfers_unique and all_paths:
+                least_transfers_unique = get_unique_routes(all_paths, 1)
+            if not fastest_unique and all_paths:
+                fastest_unique = get_unique_routes(all_paths, 1)
+            
             response_data = {
                 "fewest_walking": {
-                    "best": fewest_walking_candidates[0] if fewest_walking_candidates else None,
-                    "alternatives": fewest_walking_candidates[1:max_alternatives] if len(fewest_walking_candidates) > 1 else []
+                    "best": fewest_walking_unique[0] if fewest_walking_unique else None,
+                    "alternatives": fewest_walking_unique[1:] if len(fewest_walking_unique) > 1 else []
                 },
                 "least_transfers": {
-                    "best": least_transfers_candidates[0] if least_transfers_candidates else None,
-                    "alternatives": least_transfers_candidates[1:max_alternatives] if len(least_transfers_candidates) > 1 else []
+                    "best": least_transfers_unique[0] if least_transfers_unique else None,
+                    "alternatives": least_transfers_unique[1:] if len(least_transfers_unique) > 1 else []
                 },
                 "fastest": {
-                    "best": fastest_candidates[0] if fastest_candidates else None,
-                    "alternatives": fastest_candidates[1:max_alternatives] if len(fastest_candidates) > 1 else []
+                    "best": fastest_unique[0] if fastest_unique else None,
+                    "alternatives": fastest_unique[1:] if len(fastest_unique) > 1 else []
                 },
-                "message": f"Best routes found with up to {max_alternatives} alternatives per category.",
+                "message": f"Best routes found with completely unique alternatives (no duplicates across categories).",
                 "total_routes_found": len(all_paths),
+                "unique_routes_used": len(used_routes),
                 "alternatives_per_category": max_alternatives
             }
             return Response(response_data)
