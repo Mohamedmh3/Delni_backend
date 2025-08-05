@@ -1005,6 +1005,9 @@ def graph_route(request):
         bus_settings = getattr(settings, 'BUS_ROUTE_SETTINGS', {})
         min_bus_distance = bus_settings.get('MIN_BUS_DISTANCE_METERS', 400)
         
+        # Initialize all_paths list to store all found routes
+        all_paths = []
+        
         # 1. Direct route
         logger.info(f"Checking {len(lines)} lines for direct routes...")
         for line in lines:
@@ -1061,22 +1064,10 @@ def graph_route(request):
                             }
                         }
                         logger.info(f"Direct route accepted: {line['line_id']} bus_distance={bus_distance:.2f}m")
-                        return Response({
-                            "fewest_walking": {
-                                "best": enhanced_direct_route,
-                                "alternatives": []
-                            },
-                            "least_transfers": {
-                                "best": enhanced_direct_route,
-                                "alternatives": []
-                            },
-                            "fastest": {
-                                "best": enhanced_direct_route,
-                                "alternatives": []
-                            },
-                            "message": "Direct route found with Västtrafik enhancements.",
-                            "total_routes_found": 1
-                        })
+                        # Add direct route to all_paths instead of returning immediately
+                        all_paths.append(enhanced_direct_route)
+                        # Continue to find more routes for alternatives
+                        break
                     else:
                         logger.info(f"Direct route rejected: {line['line_id']} bus_distance={bus_distance:.2f}m < {min_bus_distance}m")
                         continue
@@ -1147,7 +1138,7 @@ def graph_route(request):
             if not has_short_leg:
                 filtered_results.append(res)
         logger.info(f"Filtered {len(results) - len(filtered_results)} routes with short bus distances")
-        all_paths = []
+        # Don't reset all_paths here - keep any direct routes found earlier
         seen = set()
         for res in filtered_results:
             key = (
@@ -1305,6 +1296,10 @@ def graph_route(request):
         
         # Sort by different criteria for different categories - Västtrafik style
         # Provide diverse alternatives for each category
+        logger.info(f"Total routes found: {len(all_paths)}")
+        for i, route in enumerate(all_paths):
+            logger.info(f"Route {i+1}: {route['route']} - transfers: {route.get('num_transfers', 0)}, walking: {route.get('total_walking', 0):.2f}m, time: {route.get('total_time_min', 0):.2f}min")
+        
         fewest_walking_candidates = sorted(all_paths, key=lambda x: (x["total_walking"], x["num_transfers"], x["total_time_min"]))
         least_transfers_candidates = sorted(all_paths, key=lambda x: (x["num_transfers"], x["total_time_min"], x["total_walking"]))
         fastest_candidates = sorted(all_paths, key=lambda x: (x["total_time_min"], x["num_transfers"], x["total_walking"]))
