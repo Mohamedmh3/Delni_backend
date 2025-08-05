@@ -32,6 +32,9 @@ MONGODB_COLLECTION=bus
 # CORS Settings
 CORS_ALLOWED_ORIGINS=https://yourdomain.com,https://www.yourdomain.com
 
+# Host Settings (optional - Railway auto-detection handles this)
+ALLOWED_HOSTS=delnibackend-production.up.railway.app,.railway.app
+
 # Optional Settings
 SENTRY_DSN=your-sentry-dsn-if-using
 CELERY_ENABLED=False

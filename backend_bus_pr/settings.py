@@ -267,6 +267,7 @@ if not DEBUG:
 import os
 if not DEBUG:
     os.makedirs(BASE_DIR / 'logs', exist_ok=True)
+    os.makedirs(BASE_DIR / 'staticfiles', exist_ok=True)
 
 # API Rate limiting (optional - requires django-ratelimit)
 RATE_LIMIT_ENABLED = config('RATE_LIMIT_ENABLED', default=False, cast=bool)
@@ -332,7 +333,7 @@ if os.getenv('RAILWAY_ENVIRONMENT') or os.getenv('RAILWAY_SERVICE_NAME'):
     print("Railway deployment detected, setting environment to production")
     
     # Railway-specific settings
-    ALLOWED_HOSTS = ['*']  # Railway handles this
+    ALLOWED_HOSTS = ['*', 'delnibackend-production.up.railway.app', '.railway.app']  # Allow Railway hosts
     DEBUG = False
     SECURE_SSL_REDIRECT = False  # Railway handles SSL
     SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
@@ -549,7 +550,11 @@ if SENTRY_DSN:
 # Final environment-specific overrides
 if IS_PRODUCTION:
     DEBUG = False
-    ALLOWED_HOSTS = config('ALLOWED_HOSTS', default='', cast=lambda v: [s.strip() for s in v.split(',') if s.strip()])
+    # For Railway, ensure we allow the Railway domain
+    if os.getenv('RAILWAY_ENVIRONMENT') or os.getenv('RAILWAY_SERVICE_NAME'):
+        ALLOWED_HOSTS = ['*', 'delnibackend-production.up.railway.app', '.railway.app']
+    else:
+        ALLOWED_HOSTS = config('ALLOWED_HOSTS', default='', cast=lambda v: [s.strip() for s in v.split(',') if s.strip()])
     MONGO_URI = config('PRODUCTION_MONGO_URI', default=MONGO_URI)
     MONGODB_DATABASE = config('PRODUCTION_MONGODB_DATABASE', default=MONGODB_DATABASE)
     
