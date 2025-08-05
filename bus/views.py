@@ -845,6 +845,14 @@ def suggest_route(request):
             enum=['fewest_walking', 'least_transfers', 'fastest'],
             example='fastest'
         ),
+        openapi.Parameter(
+            'max_alternatives',
+            openapi.IN_QUERY,
+            description="Maximum number of alternative routes per category (1-10, default: 5)",
+            type=openapi.TYPE_INTEGER,
+            required=False,
+            example=5
+        ),
     ],
     responses={
         200: openapi.Response(
@@ -983,6 +991,10 @@ def graph_route(request):
         origin = [validated_params['from_lng'], validated_params['from_lat']]
         dest = [validated_params['to_lng'], validated_params['to_lat']]
         category = validated_params.get('category')
+        
+        # Get number of alternatives from query parameter
+        max_alternatives = int(request.GET.get('max_alternatives', 5))
+        max_alternatives = min(max_alternatives, 10)  # Cap at 10 to prevent performance issues
         
         service = BusRouteService()
         # Use optimized query with projection for better performance
@@ -1292,28 +1304,29 @@ def graph_route(request):
             })
         
         # Sort by different criteria for different categories - Västtrafik style
-        # Prioritize simpler routes (fewer transfers) in all categories
-        fewest_walking_candidates = sorted(all_paths, key=lambda x: (x["num_transfers"], x["total_walking"]))
-        least_transfers_candidates = sorted(all_paths, key=lambda x: (x["num_transfers"], x["total_walking"]))
-        fastest_candidates = sorted(all_paths, key=lambda x: (x["num_transfers"], x["total_time_min"]))
+        # Provide diverse alternatives for each category
+        fewest_walking_candidates = sorted(all_paths, key=lambda x: (x["total_walking"], x["num_transfers"], x["total_time_min"]))
+        least_transfers_candidates = sorted(all_paths, key=lambda x: (x["num_transfers"], x["total_time_min"], x["total_walking"]))
+        fastest_candidates = sorted(all_paths, key=lambda x: (x["total_time_min"], x["num_transfers"], x["total_walking"]))
 
         if all_paths:
-            # Return only the best route for each category (simpler for passengers)
+            # Return multiple alternatives for each category
             response_data = {
                 "fewest_walking": {
                     "best": fewest_walking_candidates[0] if fewest_walking_candidates else None,
-                    "alternatives": []  # No alternatives to keep it simple
+                    "alternatives": fewest_walking_candidates[1:max_alternatives] if len(fewest_walking_candidates) > 1 else []
                 },
                 "least_transfers": {
                     "best": least_transfers_candidates[0] if least_transfers_candidates else None,
-                    "alternatives": []  # No alternatives to keep it simple
+                    "alternatives": least_transfers_candidates[1:max_alternatives] if len(least_transfers_candidates) > 1 else []
                 },
                 "fastest": {
                     "best": fastest_candidates[0] if fastest_candidates else None,
-                    "alternatives": []  # No alternatives to keep it simple
+                    "alternatives": fastest_candidates[1:max_alternatives] if len(fastest_candidates) > 1 else []
                 },
-                "message": "Best routes found with alternatives.",
-                "total_routes_found": len(all_paths)
+                "message": f"Best routes found with up to {max_alternatives} alternatives per category.",
+                "total_routes_found": len(all_paths),
+                "alternatives_per_category": max_alternatives
             }
             return Response(response_data)
         
