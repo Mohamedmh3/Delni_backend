@@ -1354,28 +1354,9 @@ class BusRouteService:
                 processed_results.append(processed_result)
             
             return processed_results
-                
-                except Exception as e:
-            logger.error(f"Error in fallback BFS: {e}")
-            return []
-            
-            # Sort routes based on preference
-            if preference == "closest":
-                possible_routes.sort(key=lambda r: r["distance_to_entry"])
-            elif preference == "fewest_walk":
-                possible_routes.sort(key=lambda r: r["total_walking_distance"])
-            elif preference == "fastest":
-                possible_routes.sort(key=lambda r: r["route_distance_m"])
-            
-            result = possible_routes[:max_routes]
-            
-            # Cache the results
-            self._set_cached_data(cache_key, result, timeout=600)  # Cache for 10 minutes
-            
-            return result
             
         except Exception as e:
-            logger.error(f"Error finding routes: {e}")
+            logger.error(f"Error in fallback BFS: {e}")
             return []
     
     def get_route_statistics(self) -> Dict:
