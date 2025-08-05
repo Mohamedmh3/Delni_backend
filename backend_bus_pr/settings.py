@@ -297,3 +297,570 @@ CACHE_TIMEOUT = config('CACHE_TIMEOUT', default=300, cast=int)  # 5 minutes
 # Performance Monitoring
 PERFORMANCE_MONITORING_ENABLED = config('PERFORMANCE_MONITORING_ENABLED', default=True, cast=bool)
 QUERY_TIMEOUT_SECONDS = config('QUERY_TIMEOUT_SECONDS', default=30, cast=int)
+
+# =============================================================================
+# DEPLOYMENT AND DATABASE DEPLOYMENT SETTINGS
+# =============================================================================
+
+# Environment Detection
+ENVIRONMENT = config('ENVIRONMENT', default='development')
+IS_PRODUCTION = ENVIRONMENT == 'production'
+IS_STAGING = ENVIRONMENT == 'staging'
+
+# Production Database Configuration
+if IS_PRODUCTION:
+    # PostgreSQL for production (recommended for Django)
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.postgresql',
+            'NAME': config('DB_NAME', default='bus_db'),
+            'USER': config('DB_USER', default='bus_user'),
+            'PASSWORD': config('DB_PASSWORD', default=''),
+            'HOST': config('DB_HOST', default='localhost'),
+            'PORT': config('DB_PORT', default='5432'),
+            'OPTIONS': {
+                'sslmode': 'require' if config('DB_SSL_MODE', default='require') == 'require' else 'disable',
+                'connect_timeout': 10,
+            },
+            'CONN_MAX_AGE': 600,  # 10 minutes
+            'CONN_HEALTH_CHECKS': True,
+        }
+    }
+    
+    # Redis for caching in production
+    CACHES = {
+        'default': {
+            'BACKEND': 'django_redis.cache.RedisCache',
+            'LOCATION': config('REDIS_URL', default='redis://localhost:6379/1'),
+            'OPTIONS': {
+                'CLIENT_CLASS': 'django_redis.client.DefaultClient',
+                'CONNECTION_POOL_KWARGS': {
+                    'max_connections': 50,
+                    'retry_on_timeout': True,
+                },
+                'SOCKET_CONNECT_TIMEOUT': 5,
+                'SOCKET_TIMEOUT': 5,
+            },
+            'TIMEOUT': 300,
+            'KEY_PREFIX': 'bus_api',
+        }
+    }
+    
+    # Production security settings
+    SECURE_SSL_REDIRECT = True
+    SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+    SECURE_HSTS_SECONDS = 31536000
+    SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+    SECURE_HSTS_PRELOAD = True
+    SECURE_BROWSER_XSS_FILTER = True
+    SECURE_CONTENT_TYPE_NOSNIFF = True
+    X_FRAME_OPTIONS = 'DENY'
+    
+    # Production CORS settings
+    CORS_ALLOW_ALL_ORIGINS = False
+    CORS_ALLOWED_ORIGINS = config('CORS_ALLOWED_ORIGINS', default='', cast=lambda v: [s.strip() for s in v.split(',') if s.strip()])
+    CORS_ALLOW_CREDENTIALS = True
+    CORS_ALLOWED_HEADERS = [
+        'accept',
+        'accept-encoding',
+        'authorization',
+        'content-type',
+        'dnt',
+        'origin',
+        'user-agent',
+        'x-csrftoken',
+        'x-requested-with',
+    ]
+    
+    # Production static files
+    STATIC_ROOT = BASE_DIR / 'staticfiles'
+    STATICFILES_STORAGE = 'django.contrib.staticfiles.storage.ManifestStaticFilesStorage'
+    
+    # Production media files
+    MEDIA_URL = config('MEDIA_URL', default='/media/')
+    MEDIA_ROOT = BASE_DIR / 'media'
+
+# Staging Database Configuration
+elif IS_STAGING:
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.postgresql',
+            'NAME': config('STAGING_DB_NAME', default='bus_staging'),
+            'USER': config('STAGING_DB_USER', default='bus_staging_user'),
+            'PASSWORD': config('STAGING_DB_PASSWORD', default=''),
+            'HOST': config('STAGING_DB_HOST', default='localhost'),
+            'PORT': config('STAGING_DB_PORT', default='5432'),
+            'OPTIONS': {
+                'sslmode': 'prefer',
+                'connect_timeout': 10,
+            },
+            'CONN_MAX_AGE': 300,  # 5 minutes
+        }
+    }
+    
+    # Staging CORS settings
+    CORS_ALLOWED_ORIGINS = [
+        "https://staging.yourdomain.com",
+        "http://localhost:3000",
+    ]
+
+# Development Database Configuration (enhanced)
+else:
+    # Enhanced SQLite for development
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.sqlite3',
+            'NAME': BASE_DIR / 'db.sqlite3',
+            'OPTIONS': {
+                'timeout': 20,
+                'check_same_thread': False,
+            }
+        }
+    }
+    
+    # Optional: Use PostgreSQL for development if configured
+    if config('USE_POSTGRES_DEV', default=False, cast=bool):
+        DATABASES['default'] = {
+            'ENGINE': 'django.db.backends.postgresql',
+            'NAME': config('DEV_DB_NAME', default='bus_dev'),
+            'USER': config('DEV_DB_USER', default='bus_dev_user'),
+            'PASSWORD': config('DEV_DB_PASSWORD', default=''),
+            'HOST': config('DEV_DB_HOST', default='localhost'),
+            'PORT': config('DEV_DB_PORT', default='5432'),
+            'OPTIONS': {
+                'connect_timeout': 10,
+            },
+        }
+
+# Email Configuration for Production
+if IS_PRODUCTION:
+    EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+    EMAIL_HOST = config('EMAIL_HOST', default='smtp.gmail.com')
+    EMAIL_PORT = config('EMAIL_PORT', default=587, cast=int)
+    EMAIL_USE_TLS = config('EMAIL_USE_TLS', default=True, cast=bool)
+    EMAIL_HOST_USER = config('EMAIL_HOST_USER', default='')
+    EMAIL_HOST_PASSWORD = config('EMAIL_HOST_PASSWORD', default='')
+    DEFAULT_FROM_EMAIL = config('DEFAULT_FROM_EMAIL', default='noreply@yourdomain.com')
+else:
+    EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
+
+# Celery Configuration (for background tasks)
+CELERY_ENABLED = config('CELERY_ENABLED', default=False, cast=bool)
+if CELERY_ENABLED:
+    CELERY_BROKER_URL = config('CELERY_BROKER_URL', default='redis://localhost:6379/0')
+    CELERY_RESULT_BACKEND = config('CELERY_RESULT_BACKEND', default='redis://localhost:6379/0')
+    CELERY_ACCEPT_CONTENT = ['json']
+    CELERY_TASK_SERIALIZER = 'json'
+    CELERY_RESULT_SERIALIZER = 'json'
+    CELERY_TIMEZONE = TIME_ZONE
+    CELERY_TASK_TRACK_STARTED = True
+    CELERY_TASK_TIME_LIMIT = 30 * 60  # 30 minutes
+
+# Docker and Container Settings
+DOCKER_ENABLED = config('DOCKER_ENABLED', default=False, cast=bool)
+if DOCKER_ENABLED:
+    ALLOWED_HOSTS = ['*']  # Configure properly for production
+    DEBUG = False
+    HEALTH_CHECK_URL = '/health/'
+
+# Kubernetes Settings
+KUBERNETES_ENABLED = config('KUBERNETES_ENABLED', default=False, cast=bool)
+if KUBERNETES_ENABLED:
+    POD_NAME = config('POD_NAME', default='')
+    NAMESPACE = config('NAMESPACE', default='default')
+    K8S_READINESS_PROBE = True
+    K8S_LIVENESS_PROBE = True
+
+# Error Tracking
+SENTRY_DSN = config('SENTRY_DSN', default='')
+if SENTRY_DSN:
+    import sentry_sdk
+    from sentry_sdk.integrations.django import DjangoIntegration
+    
+    sentry_sdk.init(
+        dsn=SENTRY_DSN,
+        integrations=[DjangoIntegration()],
+        environment=ENVIRONMENT,
+        traces_sample_rate=0.1 if IS_PRODUCTION else 1.0,
+        send_default_pii=True,
+    )
+
+# Final environment-specific overrides
+if IS_PRODUCTION:
+    DEBUG = False
+    ALLOWED_HOSTS = config('ALLOWED_HOSTS', default='', cast=lambda v: [s.strip() for s in v.split(',') if s.strip()])
+    MONGO_URI = config('PRODUCTION_MONGO_URI', default=MONGO_URI)
+    MONGODB_DATABASE = config('PRODUCTION_MONGODB_DATABASE', default=MONGODB_DATABASE)
+    
+elif IS_STAGING:
+    DEBUG = config('STAGING_DEBUG', default=False, cast=bool)
+    ALLOWED_HOSTS = config('STAGING_ALLOWED_HOSTS', default='', cast=lambda v: [s.strip() for s in v.split(',') if s.strip()])
+    
+else:
+    DEBUG = True
+    ALLOWED_HOSTS = ['*']
+    MONGO_URI = config('DEV_MONGO_URI', default=MONGO_URI)
+    MONGODB_DATABASE = config('DEV_MONGODB_DATABASE', default=MONGODB_DATABASE)
+
+# Print deployment information
+print(f"Environment: {ENVIRONMENT}")
+print(f"Debug: {DEBUG}")
+print(f"Database: {DATABASES['default']['ENGINE']}")
+print(f"MongoDB Database: {MONGODB_DATABASE}")
+
+# =============================================================================
+# DEPLOYMENT AND DATABASE DEPLOYMENT SETTINGS
+# =============================================================================
+
+# Environment Detection
+ENVIRONMENT = config('ENVIRONMENT', default='development')
+IS_PRODUCTION = ENVIRONMENT == 'production'
+IS_STAGING = ENVIRONMENT == 'staging'
+
+# Production Database Configuration
+if IS_PRODUCTION:
+    # PostgreSQL for production (recommended for Django)
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.postgresql',
+            'NAME': config('DB_NAME', default='bus_db'),
+            'USER': config('DB_USER', default='bus_user'),
+            'PASSWORD': config('DB_PASSWORD', default=''),
+            'HOST': config('DB_HOST', default='localhost'),
+            'PORT': config('DB_PORT', default='5432'),
+            'OPTIONS': {
+                'sslmode': 'require' if config('DB_SSL_MODE', default='require') == 'require' else 'disable',
+                'connect_timeout': 10,
+            },
+            'CONN_MAX_AGE': 600,  # 10 minutes
+            'CONN_HEALTH_CHECKS': True,
+        }
+    }
+    
+    # Redis for caching in production
+    CACHES = {
+        'default': {
+            'BACKEND': 'django_redis.cache.RedisCache',
+            'LOCATION': config('REDIS_URL', default='redis://localhost:6379/1'),
+            'OPTIONS': {
+                'CLIENT_CLASS': 'django_redis.client.DefaultClient',
+                'CONNECTION_POOL_KWARGS': {
+                    'max_connections': 50,
+                    'retry_on_timeout': True,
+                },
+                'SOCKET_CONNECT_TIMEOUT': 5,
+                'SOCKET_TIMEOUT': 5,
+            },
+            'TIMEOUT': 300,
+            'KEY_PREFIX': 'bus_api',
+        }
+    }
+    
+    # Production security settings
+    SECURE_SSL_REDIRECT = True
+    SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+    SECURE_HSTS_SECONDS = 31536000
+    SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+    SECURE_HSTS_PRELOAD = True
+    SECURE_BROWSER_XSS_FILTER = True
+    SECURE_CONTENT_TYPE_NOSNIFF = True
+    X_FRAME_OPTIONS = 'DENY'
+    
+    # Production CORS settings
+    CORS_ALLOW_ALL_ORIGINS = False
+    CORS_ALLOWED_ORIGINS = config('CORS_ALLOWED_ORIGINS', default='', cast=lambda v: [s.strip() for s in v.split(',') if s.strip()])
+    CORS_ALLOW_CREDENTIALS = True
+    CORS_ALLOWED_HEADERS = [
+        'accept',
+        'accept-encoding',
+        'authorization',
+        'content-type',
+        'dnt',
+        'origin',
+        'user-agent',
+        'x-csrftoken',
+        'x-requested-with',
+    ]
+    
+    # Production static files
+    STATIC_ROOT = BASE_DIR / 'staticfiles'
+    STATICFILES_STORAGE = 'django.contrib.staticfiles.storage.ManifestStaticFilesStorage'
+    
+    # Production media files (if using cloud storage)
+    MEDIA_URL = config('MEDIA_URL', default='/media/')
+    MEDIA_ROOT = BASE_DIR / 'media'
+    
+    # Use cloud storage for media files (optional)
+    if config('USE_CLOUD_STORAGE', default=False, cast=bool):
+        DEFAULT_FILE_STORAGE = 'storages.backends.s3boto3.S3Boto3Storage'
+        AWS_ACCESS_KEY_ID = config('AWS_ACCESS_KEY_ID', default='')
+        AWS_SECRET_ACCESS_KEY = config('AWS_SECRET_ACCESS_KEY', default='')
+        AWS_STORAGE_BUCKET_NAME = config('AWS_STORAGE_BUCKET_NAME', default='')
+        AWS_S3_REGION_NAME = config('AWS_S3_REGION_NAME', default='us-east-1')
+        AWS_S3_CUSTOM_DOMAIN = config('AWS_S3_CUSTOM_DOMAIN', default='')
+        AWS_S3_OBJECT_PARAMETERS = {
+            'CacheControl': 'max-age=86400',
+        }
+        AWS_DEFAULT_ACL = 'public-read'
+        AWS_QUERYSTRING_AUTH = False
+
+# Staging Database Configuration
+elif IS_STAGING:
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.postgresql',
+            'NAME': config('STAGING_DB_NAME', default='bus_staging'),
+            'USER': config('STAGING_DB_USER', default='bus_staging_user'),
+            'PASSWORD': config('STAGING_DB_PASSWORD', default=''),
+            'HOST': config('STAGING_DB_HOST', default='localhost'),
+            'PORT': config('STAGING_DB_PORT', default='5432'),
+            'OPTIONS': {
+                'sslmode': 'prefer',
+                'connect_timeout': 10,
+            },
+            'CONN_MAX_AGE': 300,  # 5 minutes
+        }
+    }
+    
+    # Staging CORS settings
+    CORS_ALLOWED_ORIGINS = [
+        "https://staging.yourdomain.com",
+        "http://localhost:3000",
+    ]
+
+# Development Database Configuration (enhanced)
+else:
+    # Enhanced SQLite for development
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.sqlite3',
+            'NAME': BASE_DIR / 'db.sqlite3',
+            'OPTIONS': {
+                'timeout': 20,
+                'check_same_thread': False,
+            }
+        }
+    }
+    
+    # Optional: Use PostgreSQL for development if configured
+    if config('USE_POSTGRES_DEV', default=False, cast=bool):
+        DATABASES['default'] = {
+            'ENGINE': 'django.db.backends.postgresql',
+            'NAME': config('DEV_DB_NAME', default='bus_dev'),
+            'USER': config('DEV_DB_USER', default='bus_dev_user'),
+            'PASSWORD': config('DEV_DB_PASSWORD', default=''),
+            'HOST': config('DEV_DB_HOST', default='localhost'),
+            'PORT': config('DEV_DB_PORT', default='5432'),
+            'OPTIONS': {
+                'connect_timeout': 10,
+            },
+        }
+
+# Database Connection Pooling (for production)
+if IS_PRODUCTION:
+    DATABASES['default']['OPTIONS']['MAX_CONNS'] = 20
+    DATABASES['default']['OPTIONS']['MIN_CONNS'] = 5
+
+# Database Migration Settings
+MIGRATION_MODULES = {
+    'bus': 'bus.migrations',
+}
+
+# Database Backup Settings
+DB_BACKUP_ENABLED = config('DB_BACKUP_ENABLED', default=False, cast=bool)
+DB_BACKUP_RETENTION_DAYS = config('DB_BACKUP_RETENTION_DAYS', default=7, cast=int)
+DB_BACKUP_PATH = config('DB_BACKUP_PATH', default=BASE_DIR / 'backups')
+
+# Deployment Health Checks
+HEALTH_CHECK_ENABLED = True
+HEALTH_CHECK_TIMEOUT = 30
+HEALTH_CHECK_DATABASE = True
+HEALTH_CHECK_CACHE = True
+HEALTH_CHECK_STORAGE = True
+
+# Load Balancer and Proxy Settings
+USE_X_FORWARDED_HOST = True
+USE_X_FORWARDED_PORT = True
+
+# Application Performance Monitoring (APM)
+APM_ENABLED = config('APM_ENABLED', default=False, cast=bool)
+if APM_ENABLED:
+    INSTALLED_APPS.append('elasticapm.contrib.django')
+    MIDDLEWARE.insert(0, 'elasticapm.contrib.django.middleware.TracingMiddleware')
+    
+    ELASTIC_APM = {
+        'SERVICE_NAME': config('APM_SERVICE_NAME', default='bus-api'),
+        'SECRET_TOKEN': config('APM_SECRET_TOKEN', default=''),
+        'SERVER_URL': config('APM_SERVER_URL', default=''),
+        'ENVIRONMENT': ENVIRONMENT,
+        'DEBUG': DEBUG,
+    }
+
+# Error Tracking
+SENTRY_DSN = config('SENTRY_DSN', default='')
+if SENTRY_DSN:
+    import sentry_sdk
+    from sentry_sdk.integrations.django import DjangoIntegration
+    
+    sentry_sdk.init(
+        dsn=SENTRY_DSN,
+        integrations=[DjangoIntegration()],
+        environment=ENVIRONMENT,
+        traces_sample_rate=0.1 if IS_PRODUCTION else 1.0,
+        send_default_pii=True,
+    )
+
+# Email Configuration for Production
+if IS_PRODUCTION:
+    EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+    EMAIL_HOST = config('EMAIL_HOST', default='smtp.gmail.com')
+    EMAIL_PORT = config('EMAIL_PORT', default=587, cast=int)
+    EMAIL_USE_TLS = config('EMAIL_USE_TLS', default=True, cast=bool)
+    EMAIL_HOST_USER = config('EMAIL_HOST_USER', default='')
+    EMAIL_HOST_PASSWORD = config('EMAIL_HOST_PASSWORD', default='')
+    DEFAULT_FROM_EMAIL = config('DEFAULT_FROM_EMAIL', default='noreply@yourdomain.com')
+else:
+    EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
+
+# Celery Configuration (for background tasks)
+CELERY_ENABLED = config('CELERY_ENABLED', default=False, cast=bool)
+if CELERY_ENABLED:
+    CELERY_BROKER_URL = config('CELERY_BROKER_URL', default='redis://localhost:6379/0')
+    CELERY_RESULT_BACKEND = config('CELERY_RESULT_BACKEND', default='redis://localhost:6379/0')
+    CELERY_ACCEPT_CONTENT = ['json']
+    CELERY_TASK_SERIALIZER = 'json'
+    CELERY_RESULT_SERIALIZER = 'json'
+    CELERY_TIMEZONE = TIME_ZONE
+    CELERY_TASK_TRACK_STARTED = True
+    CELERY_TASK_TIME_LIMIT = 30 * 60  # 30 minutes
+
+# Docker and Container Settings
+DOCKER_ENABLED = config('DOCKER_ENABLED', default=False, cast=bool)
+if DOCKER_ENABLED:
+    # Docker-specific settings
+    ALLOWED_HOSTS = ['*']  # Configure properly for production
+    DEBUG = False
+    
+    # Docker health check endpoint
+    HEALTH_CHECK_URL = '/health/'
+
+# Kubernetes Settings
+KUBERNETES_ENABLED = config('KUBERNETES_ENABLED', default=False, cast=bool)
+if KUBERNETES_ENABLED:
+    # Kubernetes-specific settings
+    POD_NAME = config('POD_NAME', default='')
+    NAMESPACE = config('NAMESPACE', default='default')
+    
+    # Kubernetes health checks
+    K8S_READINESS_PROBE = True
+    K8S_LIVENESS_PROBE = True
+
+# CDN Configuration
+CDN_ENABLED = config('CDN_ENABLED', default=False, cast=bool)
+if CDN_ENABLED:
+    STATIC_URL = config('CDN_STATIC_URL', default='/static/')
+    MEDIA_URL = config('CDN_MEDIA_URL', default='/media/')
+
+# Monitoring and Metrics
+METRICS_ENABLED = config('METRICS_ENABLED', default=False, cast=bool)
+if METRICS_ENABLED:
+    INSTALLED_APPS.append('django_prometheus')
+    MIDDLEWARE.append('django_prometheus.middleware.PrometheusBeforeMiddleware')
+    MIDDLEWARE.append('django_prometheus.middleware.PrometheusAfterMiddleware')
+
+# Database Replication (for high availability)
+DB_REPLICATION_ENABLED = config('DB_REPLICATION_ENABLED', default=False, cast=bool)
+if DB_REPLICATION_ENABLED and IS_PRODUCTION:
+    DATABASES['replica'] = {
+        'ENGINE': 'django.db.backends.postgresql',
+        'NAME': config('REPLICA_DB_NAME', default='bus_replica'),
+        'USER': config('REPLICA_DB_USER', default='bus_replica_user'),
+        'PASSWORD': config('REPLICA_DB_PASSWORD', default=''),
+        'HOST': config('REPLICA_DB_HOST', default='localhost'),
+        'PORT': config('REPLICA_DB_PORT', default='5432'),
+        'OPTIONS': {
+            'sslmode': 'require',
+        },
+    }
+    
+    DATABASE_ROUTERS = ['backend_bus_pr.routers.DatabaseRouter']
+
+# Auto-scaling settings
+AUTO_SCALING_ENABLED = config('AUTO_SCALING_ENABLED', default=False, cast=bool)
+if AUTO_SCALING_ENABLED:
+    MIN_INSTANCES = config('MIN_INSTANCES', default=1, cast=int)
+    MAX_INSTANCES = config('MAX_INSTANCES', default=10, cast=int)
+    TARGET_CPU_UTILIZATION = config('TARGET_CPU_UTILIZATION', default=70, cast=int)
+
+# Deployment-specific logging
+if IS_PRODUCTION:
+    LOGGING['handlers']['production_file'] = {
+        'class': 'logging.handlers.RotatingFileHandler',
+        'filename': BASE_DIR / 'logs' / 'production.log',
+        'maxBytes': 1024 * 1024 * 10,  # 10MB
+        'backupCount': 5,
+        'formatter': 'verbose',
+    }
+    LOGGING['root']['handlers'].append('production_file')
+    
+    # Error logging
+    LOGGING['handlers']['error_file'] = {
+        'class': 'logging.handlers.RotatingFileHandler',
+        'filename': BASE_DIR / 'logs' / 'error.log',
+        'maxBytes': 1024 * 1024 * 10,  # 10MB
+        'backupCount': 5,
+        'formatter': 'verbose',
+        'level': 'ERROR',
+    }
+    LOGGING['loggers']['django.request'] = {
+        'handlers': ['error_file'],
+        'level': 'ERROR',
+        'propagate': False,
+    }
+
+# Create necessary directories
+if IS_PRODUCTION:
+    os.makedirs(BASE_DIR / 'logs', exist_ok=True)
+    os.makedirs(BASE_DIR / 'staticfiles', exist_ok=True)
+    os.makedirs(BASE_DIR / 'media', exist_ok=True)
+    if DB_BACKUP_ENABLED:
+        os.makedirs(DB_BACKUP_PATH, exist_ok=True)
+
+# Final environment-specific overrides
+if IS_PRODUCTION:
+    # Ensure production security
+    DEBUG = False
+    ALLOWED_HOSTS = config('ALLOWED_HOSTS', default='', cast=lambda v: [s.strip() for s in v.split(',') if s.strip()])
+    
+    # Production-specific MongoDB settings
+    MONGO_URI = config('PRODUCTION_MONGO_URI', default=MONGO_URI)
+    MONGODB_DATABASE = config('PRODUCTION_MONGODB_DATABASE', default=MONGODB_DATABASE)
+    
+    # Disable debug toolbar
+    DEBUG_TOOLBAR_ENABLED = False
+    
+elif IS_STAGING:
+    # Staging-specific settings
+    DEBUG = config('STAGING_DEBUG', default=False, cast=bool)
+    ALLOWED_HOSTS = config('STAGING_ALLOWED_HOSTS', default='', cast=lambda v: [s.strip() for s in v.split(',') if s.strip()])
+    
+else:
+    # Development-specific settings
+    DEBUG = True
+    ALLOWED_HOSTS = ['*']
+    
+    # Development MongoDB settings
+    MONGO_URI = config('DEV_MONGO_URI', default=MONGO_URI)
+    MONGODB_DATABASE = config('DEV_MONGODB_DATABASE', default=MONGODB_DATABASE)
+    
+    # Enable debug toolbar for development
+    if config('DEBUG_TOOLBAR_ENABLED', default=True, cast=bool):
+        INSTALLED_APPS.append('debug_toolbar')
+        MIDDLEWARE.insert(0, 'debug_toolbar.middleware.DebugToolbarMiddleware')
+        INTERNAL_IPS = ['127.0.0.1', 'localhost']
+
+# Print deployment information
+print(f"Environment: {ENVIRONMENT}")
+print(f"Debug: {DEBUG}")
+print(f"Database: {DATABASES['default']['ENGINE']}")
+print(f"MongoDB Database: {MONGODB_DATABASE}")

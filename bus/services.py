@@ -1172,7 +1172,7 @@ class BusRouteService:
             Sorted list of routes
         """
         # Calculate total time for each route
-        for route in routes:
+            for route in routes:
             route['total_time'] = self._calculate_route_time(route, [])
             route['total_walking'] = route.get('origin_walk', 0) + route.get('destination_walk', 0)
         
