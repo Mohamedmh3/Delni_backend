@@ -101,7 +101,7 @@ def is_logical_transfer(coordsA, coordsB, pointA, pointB, directionA, directionB
     return False
 
 # --- BFS Pathfinding ---
-def bfs_multi_leg(lines, origin, dest, entry_thresh=300, exit_thresh=300, transfer_thresh=400, max_legs=4, min_bus_distance=300):
+def bfs_multi_leg(lines, origin, dest, entry_thresh=10000, exit_thresh=10000, transfer_thresh=400, max_legs=4, min_bus_distance=300):
     # Map line_id to line object
     line_map = {line['line_id']: line for line in lines}
     # Find all lines near origin

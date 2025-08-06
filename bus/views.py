@@ -1033,17 +1033,17 @@ def graph_route(request):
         
         # Multi-leg route (graph search) - prioritize simpler routes
         # First try with max_legs=2 (1 transfer max)
-        results = bfs_multi_leg(lines, origin, dest, entry_thresh=300, exit_thresh=300, transfer_thresh=400, max_legs=2, min_bus_distance=min_bus_distance)
+        results = bfs_multi_leg(lines, origin, dest, entry_thresh=10000, exit_thresh=10000, transfer_thresh=400, max_legs=2, min_bus_distance=min_bus_distance)
         
         # If no simple routes found, try with max_legs=3 (2 transfers max)
         if not results:
             logger.info("No simple routes found (max 1 transfer), trying with max 2 transfers...")
-            results = bfs_multi_leg(lines, origin, dest, entry_thresh=300, exit_thresh=300, transfer_thresh=400, max_legs=3, min_bus_distance=min_bus_distance)
+            results = bfs_multi_leg(lines, origin, dest, entry_thresh=10000, exit_thresh=10000, transfer_thresh=400, max_legs=3, min_bus_distance=min_bus_distance)
         
         # Only if still no routes, try with max_legs=4 (3 transfers max) - but this should be rare
         if not results:
             logger.info("No routes found with max 2 transfers, trying with max 3 transfers...")
-            results = bfs_multi_leg(lines, origin, dest, entry_thresh=300, exit_thresh=300, transfer_thresh=400, max_legs=4, min_bus_distance=min_bus_distance)
+            results = bfs_multi_leg(lines, origin, dest, entry_thresh=10000, exit_thresh=10000, transfer_thresh=400, max_legs=4, min_bus_distance=min_bus_distance)
         # Filter out routes with legs that have bus distances less than min_bus_distance
         filtered_results = []
         for res in results:
@@ -1294,7 +1294,7 @@ def graph_route(request):
             coords = line['route']['coordinates']
             entry, d_entry, entry_index = nearest_point_on_line(origin, coords)
             exit, d_exit, exit_index = nearest_point_on_line(dest, coords)
-            if d_entry < 300 and d_exit < 1000:
+            if d_entry < 10000 and d_exit < 10000:
                 # Check if the route segment is valid (entry before exit)
                 if is_valid_route_segment(coords, entry_index, exit_index):
                     bus_distance = calculate_forward_bus_distance(coords, entry_index, exit_index)

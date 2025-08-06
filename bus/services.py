@@ -1343,7 +1343,7 @@ class BusRouteService:
             # Use existing BFS
             results = bfs_multi_leg(
                 lines, origin, destination,
-                entry_thresh=300, exit_thresh=300, transfer_thresh=400,
+                entry_thresh=10000, exit_thresh=10000, transfer_thresh=400,
                 max_legs=4, min_bus_distance=300
             )
             
