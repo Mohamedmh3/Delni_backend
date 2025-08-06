@@ -1095,15 +1095,18 @@ def graph_route(request):
             if not has_short_leg:
                 filtered_results.append(res)
         logger.info(f"Filtered {len(results) - len(filtered_results)} routes with short bus distances")
-        # Don't reset all_paths here - keep any direct routes found earlier
+        # Enhanced early deduplication to prevent duplicate route construction
         seen = set()
         for res in filtered_results:
+            # Create a more comprehensive key for early deduplication
             key = (
-                tuple(res['lines']),
-                tuple(tuple(pt) for pt in res['entry_points']),
-                tuple(res['exit_point']) if isinstance(res['exit_point'], (list, tuple)) else res['exit_point']
+                tuple(res['lines']),  # Bus line IDs
+                tuple(tuple(pt) for pt in res['entry_points']),  # Entry points
+                tuple(res['exit_point']) if isinstance(res['exit_point'], (list, tuple)) else res['exit_point'],  # Exit point
+                len(res['lines'])  # Number of legs
             )
             if key in seen:
+                logger.debug(f"Early deduplication: skipping duplicate route {res['lines']}")
                 continue
             seen.add(key)
             legs = []
@@ -1257,36 +1260,70 @@ def graph_route(request):
             logger.info(f"Route {i+1}: {route['route']} - transfers: {route.get('num_transfers', 0)}, walking: {route.get('total_walking', 0):.2f}m, time: {route.get('total_time_min', 0):.2f}min")
         
         if all_paths:
-            # Remove duplicates based on route characteristics
+            # Enhanced deduplication to ensure only truly unique routes are returned
             unique_routes = []
             seen_routes = set()
             
             for route in all_paths:
-                # Create a unique key for each route
+                # Create a more comprehensive unique key for each route
+                # Include route lines, walking distance, time, transfers, and key coordinates
                 route_key = (
-                    tuple(route['route']),
-                    round(route.get('total_walking', 0), 2),
-                    round(route.get('total_time_min', 0), 2),
-                    route.get('num_transfers', 0)
+                    tuple(route['route']),  # Bus line IDs
+                    round(route.get('total_walking', 0), 1),  # Walking distance (rounded to 0.1m)
+                    round(route.get('total_time_min', 0), 1),  # Total time (rounded to 0.1min)
+                    route.get('num_transfers', 0),  # Number of transfers
+                    # Include key coordinates for better uniqueness detection
+                    tuple(tuple(leg.get('board', [])) for leg in route.get('legs', [])),
+                    tuple(tuple(leg.get('alight', [])) for leg in route.get('legs', []))
                 )
+                
                 if route_key not in seen_routes:
                     seen_routes.add(route_key)
                     unique_routes.append(route)
+                else:
+                    logger.debug(f"Duplicate route filtered out: {route['route']}")
             
-            logger.info(f"Unique routes after deduplication: {len(unique_routes)}")
+            logger.info(f"Total routes found: {len(all_paths)}, Unique routes after deduplication: {len(unique_routes)}")
             
-            # Sort routes by different criteria
+            # Sort routes by different criteria and ensure no duplicates in sorted lists
             routes_by_least_transfers = sorted(unique_routes, key=lambda x: (x.get("num_transfers", 0), x.get("total_time_min", 0), x.get("total_walking", 0)))
             routes_by_fastest = sorted(unique_routes, key=lambda x: (x.get("total_time_min", 0), x.get("num_transfers", 0), x.get("total_walking", 0)))
             routes_by_fewest_walking = sorted(unique_routes, key=lambda x: (x.get("total_walking", 0), x.get("num_transfers", 0), x.get("total_time_min", 0)))
+            
+            # Additional deduplication for sorted lists to ensure truly unique routes per category
+            def deduplicate_sorted_list(sorted_list):
+                """Remove duplicates from sorted list while preserving order"""
+                seen = set()
+                unique_list = []
+                for route in sorted_list:
+                    # Create a unique identifier for this route
+                    route_id = (
+                        tuple(route['route']),
+                        round(route.get('total_walking', 0), 1),
+                        round(route.get('total_time_min', 0), 1),
+                        route.get('num_transfers', 0)
+                    )
+                    if route_id not in seen:
+                        seen.add(route_id)
+                        unique_list.append(route)
+                return unique_list
+            
+            # Apply deduplication to sorted lists
+            routes_by_least_transfers = deduplicate_sorted_list(routes_by_least_transfers)
+            routes_by_fastest = deduplicate_sorted_list(routes_by_fastest)
+            routes_by_fewest_walking = deduplicate_sorted_list(routes_by_fewest_walking)
+            
+            # Final verification: ensure we're returning only unique routes
+            final_unique_count = len(unique_routes)
+            logger.info(f"Final unique routes count: {final_unique_count}")
             
             return Response({
                 "routes": unique_routes,
                 "sorted_by_least_transfers": routes_by_least_transfers,
                 "sorted_by_fastest": routes_by_fastest,
                 "sorted_by_fewest_walking": routes_by_fewest_walking,
-                "message": f"Found {len(unique_routes)} unique routes.",
-                "total_routes_found": len(unique_routes)
+                "message": f"Found {final_unique_count} unique routes.",
+                "total_routes_found": final_unique_count
             })
         
         # 3. Closest + walk
