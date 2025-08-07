@@ -1727,20 +1727,9 @@ def graph_route(request):
                 ),
             )
         
-        # Primary sorting: fewest walking first, then least transfers, then fastest, then transfer-walk
-        def sort_by_priority(routes):
-            return sorted(
-                routes,
-                key=lambda x: (
-                    x.get('total_walking_distance', float('inf')),
-                    x.get('transfer_count', float('inf')),
-                    x.get('total_estimated_time', float('inf')),
-                    compute_transfer_walking_distance(x),
-                ),
-            )
+        # Note: default response uses fewest walking first (see below)
         
         # Create categorized responses
-        sorted_by_priority = sort_by_priority(all_paths.copy())
         sorted_by_fewest_walking = sort_by_fewest_walking(all_paths.copy())
         sorted_by_least_transfers = sort_by_least_transfers(all_paths.copy())
         sorted_by_fastest = sort_by_fastest(all_paths.copy())
@@ -1757,13 +1746,12 @@ def graph_route(request):
         elif category == 'fastest':
             response_routes = limit_alternatives(sorted_by_fastest, max_alternatives)
         else:
-            # Default: prioritize user convenience - fewest walking → least transfers → fastest → minimal transfer-walk
-            response_routes = limit_alternatives(sorted_by_priority, max_alternatives)
+            # Default: fewest total walking first
+            response_routes = limit_alternatives(sorted_by_fewest_walking, max_alternatives)
         
         # Prepare response with hierarchical structure
         response_data = {
-            "routes": response_routes,  # Main routes sorted by user convenience (fewest walking first)
-            "sorted_by_priority": limit_alternatives(sorted_by_priority, max_alternatives),
+            "routes": response_routes,  # Main routes sorted by fewest total walking
             "sorted_by_fewest_walking": limit_alternatives(sorted_by_fewest_walking, max_alternatives),
             "sorted_by_least_transfers": limit_alternatives(sorted_by_least_transfers, max_alternatives),
             "sorted_by_fastest": limit_alternatives(sorted_by_fastest, max_alternatives),
