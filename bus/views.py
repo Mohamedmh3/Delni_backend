@@ -17,6 +17,8 @@ from datetime import datetime, timedelta
 import json
 import logging
 from functools import wraps
+import os
+import requests
 from .services import BusRouteService
 from .validators import validate_coordinates, validate_route_preferences
 from .exceptions import (
@@ -1030,6 +1032,116 @@ def graph_route(request):
         
         # Initialize all_paths list to store all found routes
         all_paths = []
+
+        # --- Walking route provider (MapTiler) ---
+        def _cache_key_for_walk(p_from, p_to):
+            def _roundp(p):
+                return f"{round(p[0], 5)},{round(p[1], 5)}"
+            return f"walk:{_roundp(p_from)}->{_roundp(p_to)}"
+
+        def _maptiler_api_key():
+            return getattr(settings, 'MAPTILER_API_KEY', None) or os.getenv('MAPTILER_API_KEY')
+
+        def _resample_polyline(coords, step_m=15.0):
+            """Downsample or resample a polyline to points every ~step_m meters.
+            Returns a list of [lng, lat] points.
+            """
+            if not coords or len(coords) < 2:
+                return coords or []
+            sampled = [coords[0]]
+            accumulated = 0.0
+            last = coords[0]
+            for pt in coords[1:]:
+                seg = distance(last, pt)
+                while accumulated + seg >= step_m:
+                    remain = step_m - accumulated
+                    # linear interpolate between last and pt
+                    ratio = remain / seg if seg > 0 else 0
+                    lng = last[0] + ratio * (pt[0] - last[0])
+                    lat = last[1] + ratio * (pt[1] - last[1])
+                    sampled.append([lng, lat])
+                    last = [lng, lat]
+                    seg = distance(last, pt)
+                    accumulated = 0.0
+                accumulated += seg
+                last = pt
+            if sampled[-1] != coords[-1]:
+                sampled.append(coords[-1])
+            return sampled
+
+        def fetch_maptiler_walking_route(start_point, end_point):
+            """
+            Fetch street-valid walking route between two points using MapTiler Directions.
+            Returns dict: { 'coordinates': [[lng,lat], ...], 'distance_m': float, 'duration_min': float }
+            or None on failure.
+            """
+            try:
+                if not start_point or not end_point:
+                    return None
+                api_key = _maptiler_api_key()
+                if not api_key:
+                    return None
+                cache_key = _cache_key_for_walk(start_point, end_point)
+                cached = cache.get(cache_key)
+                if cached:
+                    return cached
+
+                slng, slat = start_point[0], start_point[1]
+                elng, elat = end_point[0], end_point[1]
+                # Mapbox-style Directions compatible endpoint used by MapTiler
+                url = (
+                    f"https://api.maptiler.com/directions/foot/{slng},{slat};{elng},{elat}.json"
+                    f"?key={api_key}&alternatives=false&geometries=geojson&overview=full&steps=false"
+                )
+                resp = requests.get(url, timeout=8)
+                if resp.status_code != 200:
+                    return None
+                data = resp.json()
+
+                # Try Mapbox-like structure
+                route = None
+                if isinstance(data, dict) and data.get('routes'):
+                    route = data['routes'][0]
+                    distance_m = float(route.get('distance', 0.0))
+                    duration_s = float(route.get('duration', 0.0))
+                    coords = route.get('geometry', {}).get('coordinates') or []
+                else:
+                    # Fallback: geojson features structure
+                    features = data.get('features') if isinstance(data, dict) else None
+                    if features:
+                        geom = features[0].get('geometry', {}) if features else {}
+                        coords = geom.get('coordinates') or []
+                        distance_m = float(data.get('distance', 0.0))
+                        duration_s = float(data.get('duration', 0.0))
+                    else:
+                        return None
+
+                result = {
+                    'coordinates': _resample_polyline(coords, step_m=15.0),
+                    'distance_m': distance_m,
+                    'duration_min': (duration_s / 60.0) if duration_s else (distance_m / 5000.0 * 60.0)
+                }
+                cache.set(cache_key, result, timeout=60 * 60 * 24)  # 24h
+                return result
+            except Exception:
+                return None
+
+        def build_walking_segment(start_point, end_point):
+            """Return street-valid walking segment or fallback straight line.
+            Output: (coords: list, distance_m: float, duration_min: float)
+            """
+            # Skip if points are the same or invalid
+            if (not start_point or not end_point or
+                (abs(start_point[0] - end_point[0]) < 1e-9 and abs(start_point[1] - end_point[1]) < 1e-9)):
+                return [], 0.0, 0.0
+
+            route = fetch_maptiler_walking_route(start_point, end_point)
+            if route and route.get('coordinates'):
+                return route['coordinates'], float(route.get('distance_m', 0.0)), float(route.get('duration_min', 0.0))
+
+            # Fallback: straight line polyline
+            fallback_distance = distance(start_point, end_point)
+            return generate_walking_polyline(start_point, end_point, fallback_distance), fallback_distance, (fallback_distance / 5000.0 * 60.0)
         
         # Multi-leg route (graph search) - prioritize multi-leg routes
         # First try with max_legs=4 (3 transfers max) to get comprehensive coverage
@@ -1163,17 +1275,33 @@ def graph_route(request):
                 else:
                     bus_distance = 0.0  # Invalid route segment
                 
-                # Calculate walking distances - set to 1000m for entry and exit
+                # Calculate walking distances and walking polylines precisely via MapTiler
+                # Entry walk: from origin to first board; for middle legs, from previous alight to this board
                 if i == 0:
-                    # First leg: walk from origin to board (1000m), and from alight to transfer point
-                    walk_start = 1000.0  # Fixed 1000m entry walk
-                    walk_end = distance(alight, res['entry_points'][i+1]) if i + 1 < len(res['entry_points']) else 1000.0  # 1000m exit walk
+                    walk_start_coords, walk_start, walk_start_time = build_walking_segment(origin, board)
                 else:
-                    # Other legs: walk from transfer point to board, and from alight to next transfer or destination
-                    walk_start = 0
-                    walk_end = distance(alight, res['entry_points'][i+1]) if i + 1 < len(res['entry_points']) else 1000.0  # 1000m exit walk
+                    # Previous alight coincides with current board in our transfer model
+                    prev_alight = res['entry_points'][i]
+                    if prev_alight and board:
+                        walk_start_coords, walk_start, walk_start_time = build_walking_segment(prev_alight, board)
+                    else:
+                        walk_start_coords, walk_start, walk_start_time = [], 0.0, 0.0
+
+                # Exit walk: for middle legs to next board (usually ~0 if transfer point is shared),
+                # for final leg from last alight to destination
+                if i + 1 < len(res['entry_points']):
+                    next_board = res['entry_points'][i+1]
+                    if alight and next_board:
+                        walk_end_coords, walk_end, walk_end_time = build_walking_segment(alight, next_board)
+                    else:
+                        walk_end_coords, walk_end, walk_end_time = [], 0.0, 0.0
+                else:
+                    if alight and dest:
+                        walk_end_coords, walk_end, walk_end_time = build_walking_segment(alight, dest)
+                    else:
+                        walk_end_coords, walk_end, walk_end_time = [], 0.0, 0.0
                 
-                walk_time = (walk_start + walk_end) / 5000 * 60
+                walk_time = walk_start_time + walk_end_time
                 bus_time = bus_distance / 20000 * 60
                 leg_time = walk_time + bus_time
                 total_time += leg_time
@@ -1190,17 +1318,16 @@ def graph_route(request):
                         leg_coords = coords[alight_index:board_index + 1][::-1]
                     
                     # Add walking segments
-                    if i == 0 and walk_start > 0:
-                        # Add origin to board walking path
-                        leg_polyline.extend(generate_walking_polyline(origin, board, walk_start))
+                    if walk_start > 0 and walk_start_coords:
+                        # Add origin/transfer to board walking path (street-valid)
+                        leg_polyline.extend(walk_start_coords)
                     
                     # Add bus segment
                     leg_polyline.extend(leg_coords)
                     
-                    if walk_end > 0:
-                        # Add alight to destination/transfer walking path
-                        next_point = res['entry_points'][i+1] if i + 1 < len(res['entry_points']) else dest
-                        leg_polyline.extend(generate_walking_polyline(alight, next_point, walk_end))
+                    if walk_end > 0 and walk_end_coords:
+                        # Add alight to destination/transfer walking path (street-valid)
+                        leg_polyline.extend(walk_end_coords)
                 
                 legs.append({
                     "line_id": line_id,
@@ -1257,19 +1384,12 @@ def graph_route(request):
                 "total_walking_distance": total_walking_distance,
                 "total_estimated_time": total_time,
                 "transfer_count": transfer_count,
-                "num_transfers": transfer_count,
-                "total_walking": total_walking_distance,
-                "total_time_min": total_time,
                 "final_leg_suggestion": suggestion,
                 "walking_directions": walking_directions,
                 "full_polyline": full_polyline,
                 "filtered_polyline": filtered_polyline,
-                "entry_point": res['entry_points'][0] if res['entry_points'] else None,
                 "exit_point": res['exit_point'],
-                "transfers": res.get('entry_points', [])[1:] if len(res.get('entry_points', [])) > 1 else [],
                 "entry_points": res.get('entry_points', []),
-                "final_exit_point": res['exit_point'],
-                "exit_walk": final_walk,
                 "origin_to_first_bus_walk": legs[0]["walk_start"] if legs else 0,
                 "last_bus_to_destination_walk": legs[-1]["walk_end"] if legs else 0,
                 "accessibility": {
