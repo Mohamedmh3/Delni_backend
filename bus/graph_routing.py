@@ -126,7 +126,7 @@ def bfs_multi_leg(lines, origin, dest, entry_thresh=10000, exit_thresh=10000, tr
         queue.append((line_id, [line_id], [entry], entry_walk, entry, entry_walk, entry_index))
     visited = set()
     results = []
-    max_simple_routes = 3  # Stop after finding 3 simple routes (1-2 buses)
+    max_simple_routes = 1  # Reduce simple routes to prioritize multi-leg routes
     
     while queue:
         curr, path, transfers, walk, last_point, last_walk, last_entry_index = queue.popleft()
@@ -168,11 +168,11 @@ def bfs_multi_leg(lines, origin, dest, entry_thresh=10000, exit_thresh=10000, tr
                         results.append(route_result)
                         logger.debug(f"Added direct route: {path}")
                         
-                        # Early termination: if we have enough simple routes, stop searching
+                        # Continue searching for multi-leg routes even after finding simple routes
                         simple_routes = [r for r in results if len(r['lines']) <= 2]
                         if len(simple_routes) >= max_simple_routes:
-                            logger.info(f"Found {len(simple_routes)} simple routes, stopping search")
-                            break
+                            logger.info(f"Found {len(simple_routes)} simple routes, continuing search for multi-leg routes")
+                            # Don't break - continue searching for multi-leg routes
                 else:
                     logger.debug(f"Skipped direct route due to short bus distance: {bus_distance_leg:.2f}m < {min_bus_distance}m")
             continue
@@ -226,18 +226,18 @@ def bfs_multi_leg(lines, origin, dest, entry_thresh=10000, exit_thresh=10000, tr
                 # Calculate actual transfer walking distance
                 actual_transfer_walk = distance(last_point, best_transfer_A)
 
-                # Skip if walking distance between transfer points is below threshold
-                if actual_transfer_walk < transfer_thresh:
-                    logger.debug(f"Skipped transfer due to short walking transfer: {actual_transfer_walk:.2f}m < {transfer_thresh}m")
+                # Allow transfers with shorter walking distances to encourage multi-leg routes
+                if actual_transfer_walk < 50:  # Reduced threshold to 50m
+                    logger.debug(f"Skipped transfer due to very short walking transfer: {actual_transfer_walk:.2f}m < 50m")
                     continue
 
                 queue.append((n_id, path + [n_id], transfers + [best_transfer_A], walk + actual_transfer_walk, best_transfer_A, actual_transfer_walk, best_transfer_B_index))
                 logger.debug(f"Added transfer: {curr} -> {n_id}")
-    # Sort by simplicity first (fewer transfers), then by walking distance
-    results.sort(key=lambda x: (len(x['lines']), x['total_walking']))
+    # Sort by fewest transfers first, then by walking distance
+    results.sort(key=lambda x: (len(x['lines']) - 1, x['total_walking']))
     
-    # Limit results to only the best simple routes (max 5 results)
-    max_results = 5
+    # Return more results to include multi-leg routes
+    max_results = 10
     return results[:max_results]
 
 def is_logical_route_sequence(route_sequence, line_map):
