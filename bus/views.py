@@ -1664,19 +1664,80 @@ def graph_route(request):
                 "message": "No available bus route to destination. Please use taxi."
             }, status=status.HTTP_404_NOT_FOUND)
         
-        # Sort routes by different criteria
+        # --- Sorting helpers ---
+        def compute_transfer_walking_distance(route):
+            """Estimate walking distance between bus legs (alight -> next board)."""
+            total = 0.0
+            legs = route.get('legs') or []
+            if isinstance(legs, list) and len(legs) >= 2:
+                for i in range(len(legs) - 1):
+                    alight = (
+                        legs[i].get('alight')
+                        or legs[i].get('exit_point')
+                        or legs[i].get('exit')
+                    )
+                    board = (
+                        legs[i + 1].get('board')
+                        or legs[i + 1].get('entry_point')
+                        or legs[i + 1].get('entry')
+                    )
+                    if (
+                        alight and board and
+                        isinstance(alight, (list, tuple)) and len(alight) >= 2 and
+                        isinstance(board, (list, tuple)) and len(board) >= 2
+                    ):
+                        try:
+                            total += distance(alight, board)
+                        except Exception:
+                            # If distance calc fails, skip this leg pair
+                            pass
+            return total
+
+        # Sort routes by different criteria with professional tie-breakers
         def sort_by_fewest_walking(routes):
-            return sorted(routes, key=lambda x: x['total_walking_distance'])
+            return sorted(
+                routes,
+                key=lambda x: (
+                    x.get('total_walking_distance', float('inf')),
+                    x.get('transfer_count', float('inf')),
+                    x.get('total_estimated_time', float('inf')),
+                    compute_transfer_walking_distance(x),
+                ),
+            )
         
         def sort_by_least_transfers(routes):
-            return sorted(routes, key=lambda x: x['transfer_count'])
+            return sorted(
+                routes,
+                key=lambda x: (
+                    x.get('transfer_count', float('inf')),
+                    x.get('total_walking_distance', float('inf')),
+                    x.get('total_estimated_time', float('inf')),
+                    compute_transfer_walking_distance(x),
+                ),
+            )
         
         def sort_by_fastest(routes):
-            return sorted(routes, key=lambda x: x['total_estimated_time'])
+            return sorted(
+                routes,
+                key=lambda x: (
+                    x.get('total_estimated_time', float('inf')),
+                    x.get('total_walking_distance', float('inf')),
+                    x.get('transfer_count', float('inf')),
+                    compute_transfer_walking_distance(x),
+                ),
+            )
         
-        # Primary sorting: fewest transfers first, then fewest walking distance
+        # Primary sorting: fewest walking first, then least transfers, then fastest, then transfer-walk
         def sort_by_priority(routes):
-            return sorted(routes, key=lambda x: (x['transfer_count'], x['total_walking_distance']))
+            return sorted(
+                routes,
+                key=lambda x: (
+                    x.get('total_walking_distance', float('inf')),
+                    x.get('transfer_count', float('inf')),
+                    x.get('total_estimated_time', float('inf')),
+                    compute_transfer_walking_distance(x),
+                ),
+            )
         
         # Create categorized responses
         sorted_by_priority = sort_by_priority(all_paths.copy())
@@ -1696,12 +1757,12 @@ def graph_route(request):
         elif category == 'fastest':
             response_routes = limit_alternatives(sorted_by_fastest, max_alternatives)
         else:
-            # Return routes prioritized by fewest transfers, then fewest walking
+            # Default: prioritize user convenience - fewest walking → least transfers → fastest → minimal transfer-walk
             response_routes = limit_alternatives(sorted_by_priority, max_alternatives)
         
         # Prepare response with hierarchical structure
         response_data = {
-            "routes": response_routes,  # Main routes sorted by priority (fewest transfers, then walking)
+            "routes": response_routes,  # Main routes sorted by user convenience (fewest walking first)
             "sorted_by_priority": limit_alternatives(sorted_by_priority, max_alternatives),
             "sorted_by_fewest_walking": limit_alternatives(sorted_by_fewest_walking, max_alternatives),
             "sorted_by_least_transfers": limit_alternatives(sorted_by_least_transfers, max_alternatives),
