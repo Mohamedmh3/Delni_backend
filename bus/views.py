@@ -1693,15 +1693,57 @@ def graph_route(request):
                             pass
             return total
 
+        def get_total_walking_value(route):
+            """Robustly compute a route's total walking value.
+            Prefers explicit totals, falls back to components and transfer walking.
+            """
+            v = route.get('total_walking_distance')
+            if v is None:
+                v = route.get('total_walking')
+            if v is None:
+                # Try to compose from parts
+                origin_walk = route.get('origin_to_first_bus_walk') or (
+                    route.get('walking_directions', {})
+                        .get('origin_to_first_bus', {})
+                        .get('total_distance_m')
+                ) or 0.0
+                dest_walk = route.get('last_bus_to_destination_walk') or (
+                    route.get('walking_directions', {})
+                        .get('last_bus_to_destination', {})
+                        .get('total_distance_m')
+                ) or 0.0
+                v = float(origin_walk) + float(dest_walk)
+            # Always include transfer walking as part of total walking convenience
+            try:
+                v_with_transfers = float(v) + float(compute_transfer_walking_distance(route))
+            except Exception:
+                v_with_transfers = float(v) if v is not None else float('inf')
+            return v_with_transfers
+
+        def get_transfer_count(route):
+            tc = route.get('transfer_count')
+            if tc is None:
+                tc = route.get('num_transfers')
+            if tc is None:
+                legs = route.get('legs') or []
+                tc = max(0, len(legs) - 1)
+            return tc
+
+        def get_total_time(route):
+            t = route.get('total_estimated_time')
+            if t is None:
+                t = route.get('total_time_min')
+            return t if t is not None else float('inf')
+
         # Sort routes by different criteria with professional tie-breakers
         def sort_by_fewest_walking(routes):
             return sorted(
                 routes,
                 key=lambda x: (
-                    x.get('total_walking_distance', float('inf')),
-                    x.get('transfer_count', float('inf')),
-                    x.get('total_estimated_time', float('inf')),
-                    compute_transfer_walking_distance(x),
+                    get_total_walking_value(x),
+                    get_transfer_count(x),
+                    get_total_time(x),
+                    compute_transfer_walking_distance(x),  # fine-grained tie-breaker
                 ),
             )
         
@@ -1709,9 +1751,9 @@ def graph_route(request):
             return sorted(
                 routes,
                 key=lambda x: (
-                    x.get('transfer_count', float('inf')),
-                    x.get('total_walking_distance', float('inf')),
-                    x.get('total_estimated_time', float('inf')),
+                    get_transfer_count(x),
+                    get_total_walking_value(x),
+                    get_total_time(x),
                     compute_transfer_walking_distance(x),
                 ),
             )
@@ -1720,9 +1762,9 @@ def graph_route(request):
             return sorted(
                 routes,
                 key=lambda x: (
-                    x.get('total_estimated_time', float('inf')),
-                    x.get('total_walking_distance', float('inf')),
-                    x.get('transfer_count', float('inf')),
+                    get_total_time(x),
+                    get_total_walking_value(x),
+                    get_transfer_count(x),
                     compute_transfer_walking_distance(x),
                 ),
             )
