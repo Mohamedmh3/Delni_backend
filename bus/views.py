@@ -12,7 +12,6 @@ from django.views.decorators.vary import vary_on_cookie
 from django.core.exceptions import ValidationError
 from django.http import Http404
 from django.db import connection
-from django.core.cache import cache
 from django.utils import timezone
 from datetime import datetime, timedelta
 import json
@@ -1032,19 +1031,19 @@ def graph_route(request):
         # Initialize all_paths list to store all found routes
         all_paths = []
         
-        # Multi-leg route (graph search) - force multi-leg routes for better coverage
-        # First try with max_legs=3 (2 transfers max) to ensure multi-leg routes
-        results = bfs_multi_leg(lines, origin, dest, entry_thresh=1000, exit_thresh=1000, transfer_thresh=400, max_legs=3, min_bus_distance=min_bus_distance)
+        # Multi-leg route (graph search) - prioritize multi-leg routes
+        # First try with max_legs=4 (3 transfers max) to get comprehensive coverage
+        results = bfs_multi_leg(lines, origin, dest, entry_thresh=1000, exit_thresh=1000, transfer_thresh=400, max_legs=4, min_bus_distance=min_bus_distance)
         
-        # If no multi-leg routes found, try with max_legs=2 (1 transfer max)
+        # If no routes found, try with max_legs=3 (2 transfers max)
         if not results:
-            logger.info("No multi-leg routes found, trying with max 1 transfer...")
+            logger.info("No routes found with max 3 transfers, trying with max 2 transfers...")
+            results = bfs_multi_leg(lines, origin, dest, entry_thresh=1000, exit_thresh=1000, transfer_thresh=400, max_legs=3, min_bus_distance=min_bus_distance)
+        
+        # Only if still no routes, try with max_legs=2 (1 transfer max)
+        if not results:
+            logger.info("No routes found with max 2 transfers, trying with max 1 transfer...")
             results = bfs_multi_leg(lines, origin, dest, entry_thresh=1000, exit_thresh=1000, transfer_thresh=400, max_legs=2, min_bus_distance=min_bus_distance)
-        
-        # Only if still no routes, try with max_legs=4 (3 transfers max)
-        if not results:
-            logger.info("No routes found with max 2 transfers, trying with max 3 transfers...")
-            results = bfs_multi_leg(lines, origin, dest, entry_thresh=1000, exit_thresh=1000, transfer_thresh=400, max_legs=4, min_bus_distance=min_bus_distance)
         
         # Filter out routes with legs that have bus distances less than min_bus_distance
         filtered_results = []
@@ -1534,6 +1533,11 @@ def graph_route(request):
                 }
             ]
             all_paths.extend(sample_routes)
+            
+            # Add a sample multi-leg route
+            sample_multi_leg_route = {
+                "route_id": "multi_leg_sample",
+                "route": ["line_1", "line_2"],
                 "legs": [
                     {
                         "line_id": "line_1",
@@ -1653,7 +1657,7 @@ def graph_route(request):
                     "service_days": ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"]
                 }
             }
-            all_paths.append(sample_route)
+            all_paths.extend(sample_routes)
         
         if not all_paths:
             return Response({

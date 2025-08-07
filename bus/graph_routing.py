@@ -62,26 +62,21 @@ def build_transfer_graph(lines, transfer_threshold=400):
                 continue
             coordsB = lineB['route']['coordinates']
             directionB = lineB.get('direction', 'unknown')
-            # Only allow transfers between routes with compatible directions
-            if directionA == directionB:
-                a, b, d = find_transfer_points(coordsA, coordsB, threshold=transfer_threshold)
-                if d < transfer_threshold:
-                    graph[lineA['line_id']].append({
-                        'neighbor': lineB['line_id'],
-                        'transfer_A': a,
-                        'transfer_B': b,
-                        'transfer_dist': d
-                    })
-            else:
-                # For different directions, only allow transfer if logical (e.g., at endpoints)
-                a, b, d = find_transfer_points(coordsA, coordsB, threshold=transfer_threshold)
-                if d < transfer_threshold and is_logical_transfer(coordsA, coordsB, a, b, directionA, directionB):
-                    graph[lineA['line_id']].append({
-                        'neighbor': lineB['line_id'],
-                        'transfer_A': a,
-                        'transfer_B': b,
-                        'transfer_dist': d
-                    })
+            
+            # Find transfer points between the two routes
+            a, b, d = find_transfer_points(coordsA, coordsB, threshold=transfer_threshold)
+            if d < transfer_threshold:
+                # Allow transfers between any routes that are close enough
+                # The BFS algorithm will handle the logic of valid transfers
+                graph[lineA['line_id']].append({
+                    'neighbor': lineB['line_id'],
+                    'transfer_A': a,
+                    'transfer_B': b,
+                    'transfer_dist': d
+                })
+                logger.debug(f"Added transfer edge: {lineA['line_id']} -> {lineB['line_id']} (distance: {d:.2f}m)")
+    
+    logger.info(f"Built transfer graph with {len(graph)} nodes and {sum(len(edges) for edges in graph.values())} edges")
     return graph
 
 def is_logical_transfer(coordsA, coordsB, pointA, pointB, directionA, directionB):
@@ -111,6 +106,11 @@ def bfs_multi_leg(lines, origin, dest, entry_thresh=10000, exit_thresh=10000, tr
         entry, d_entry, entry_index = nearest_point_on_line(origin, coords)
         if d_entry < entry_thresh:
             origin_lines.append((line['line_id'], entry, d_entry, entry_index))
+    
+    logger.info(f"Found {len(origin_lines)} lines near origin within {entry_thresh}m")
+    for line_id, entry, d_entry, entry_index in origin_lines:
+        logger.debug(f"  Origin line: {line_id} (distance: {d_entry:.2f}m)")
+    
     # Find all lines near destination
     dest_lines = set()
     for line in lines:
@@ -118,6 +118,10 @@ def bfs_multi_leg(lines, origin, dest, entry_thresh=10000, exit_thresh=10000, tr
         exit, d_exit, exit_index = nearest_point_on_line(dest, coords)
         if d_exit < exit_thresh:
             dest_lines.add(line['line_id'])
+    
+    logger.info(f"Found {len(dest_lines)} lines near destination within {exit_thresh}m")
+    for line_id in dest_lines:
+        logger.debug(f"  Destination line: {line_id}")
     # Build transfer graph
     graph = build_transfer_graph(lines, transfer_threshold=transfer_thresh)
     # BFS: (current_line, path_so_far, transfer_points, walking_so_far, entry_point, entry_walk, entry_index)
@@ -126,7 +130,7 @@ def bfs_multi_leg(lines, origin, dest, entry_thresh=10000, exit_thresh=10000, tr
         queue.append((line_id, [line_id], [entry], entry_walk, entry, entry_walk, entry_index))
     visited = set()
     results = []
-    max_simple_routes = 1  # Reduce simple routes to prioritize multi-leg routes
+    max_simple_routes = 5  # Increased to allow more simple routes before stopping
     
     while queue:
         curr, path, transfers, walk, last_point, last_walk, last_entry_index = queue.popleft()
@@ -146,7 +150,7 @@ def bfs_multi_leg(lines, origin, dest, entry_thresh=10000, exit_thresh=10000, tr
                     logger.debug(f"Skipped final leg due to short bus distance: {bus_distance_leg:.2f}m < {min_bus_distance}m")
                     continue       
                 
-                logger.debug(f"Direct route found: line={curr}, bus_distance={bus_distance_leg:.2f}m, min_threshold={min_bus_distance}")
+                logger.debug(f"Route found: line={curr}, bus_distance={bus_distance_leg:.2f}m, min_threshold={min_bus_distance}, legs={len(path)}")
                 
                 # Check if bus distance meets minimum requirement
                 if bus_distance_leg >= min_bus_distance:
@@ -166,15 +170,14 @@ def bfs_multi_leg(lines, origin, dest, entry_thresh=10000, exit_thresh=10000, tr
                         route_result['filtered_polyline'] = filtered_polyline
                         
                         results.append(route_result)
-                        logger.debug(f"Added direct route: {path}")
+                        logger.debug(f"Added route with {len(path)} legs: {path}")
                         
-                        # Continue searching for multi-leg routes even after finding simple routes
-                        simple_routes = [r for r in results if len(r['lines']) <= 2]
-                        if len(simple_routes) >= max_simple_routes:
-                            logger.info(f"Found {len(simple_routes)} simple routes, continuing search for multi-leg routes")
-                            # Don't break - continue searching for multi-leg routes
+                        # Only stop if we have enough routes total, not just simple routes
+                        if len(results) >= 15:  # Increased total route limit
+                            logger.info(f"Found {len(results)} routes, stopping search")
+                            break
                 else:
-                    logger.debug(f"Skipped direct route due to short bus distance: {bus_distance_leg:.2f}m < {min_bus_distance}m")
+                    logger.debug(f"Skipped route due to short bus distance: {bus_distance_leg:.2f}m < {min_bus_distance}m")
             continue
         # Explore neighbors
         for neighbor in graph[curr]:
@@ -202,7 +205,7 @@ def bfs_multi_leg(lines, origin, dest, entry_thresh=10000, exit_thresh=10000, tr
                 # Find closest point on the next route to this point
                 for j, point_B in enumerate(next_coords):
                     dist = distance(point_A, point_B)
-                    if dist < closest_transfer_dist and dist < 100:  # Within 100m
+                    if dist < closest_transfer_dist and dist < transfer_thresh:  # Use transfer_thresh instead of hardcoded 100m
                         closest_transfer_dist = dist
                         best_transfer_A = point_A
                         best_transfer_B = point_B
@@ -235,6 +238,11 @@ def bfs_multi_leg(lines, origin, dest, entry_thresh=10000, exit_thresh=10000, tr
                 logger.debug(f"Added transfer: {curr} -> {n_id}")
     # Sort by fewest transfers first, then by walking distance
     results.sort(key=lambda x: (len(x['lines']) - 1, x['total_walking']))
+    
+    # Log the results for debugging
+    logger.info(f"Found {len(results)} routes:")
+    for i, route in enumerate(results):
+        logger.info(f"  Route {i+1}: {len(route['lines'])} legs, {len(route['lines'])-1} transfers, {route['total_walking']:.0f}m walking")
     
     # Return more results to include multi-leg routes
     max_results = 10
