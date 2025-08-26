@@ -234,7 +234,6 @@ if not DEBUG:
     
     # Static files configuration
     STATIC_ROOT = BASE_DIR / 'staticfiles'
-    STATICFILES_STORAGE = 'django.contrib.staticfiles.storage.ManifestStaticFilesStorage'
 
 # Performance and caching settings
 CACHES = {
@@ -255,21 +254,19 @@ CSRF_COOKIE_SECURE = not DEBUG
 
 # Additional logging for production
 if not DEBUG:
-    LOGGING['handlers']['file'] = {
-        'class': 'logging.FileHandler',
-        'filename': BASE_DIR / 'logs' / 'django.log',
-        'formatter': 'verbose',
-    }
-    LOGGING['root']['handlers'].append('file')
-    LOGGING['django']['handlers'].append('file')
+    pass
+    
 
 # Create logs directory if it doesn't exist
-import os
-if not DEBUG:
-        STATIC_ROOT = BASE_DIR / 'staticfiles'
+# import os
+if DEBUG:
+    # During development, use local static folder
+    STATICFILES_DIRS = [BASE_DIR / 'static']
+    STATIC_ROOT = BASE_DIR / 'staticfiles'  # Add this lineelse:
+    # In production (Vercel), static files go here
+    STATIC_ROOT = BASE_DIR / 'staticfiles'
+    STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 
-    # os.makedirs(BASE_DIR / 'logs', exist_ok=True)
-    # os.makedirs(BASE_DIR / 'staticfiles', exist_ok=True)
 
 # API Rate limiting (optional - requires django-ratelimit)
 RATE_LIMIT_ENABLED = config('RATE_LIMIT_ENABLED', default=False, cast=bool)
