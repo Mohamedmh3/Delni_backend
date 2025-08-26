@@ -266,8 +266,10 @@ if not DEBUG:
 # Create logs directory if it doesn't exist
 import os
 if not DEBUG:
-    os.makedirs(BASE_DIR / 'logs', exist_ok=True)
-    os.makedirs(BASE_DIR / 'staticfiles', exist_ok=True)
+        STATIC_ROOT = BASE_DIR / 'staticfiles'
+
+    # os.makedirs(BASE_DIR / 'logs', exist_ok=True)
+    # os.makedirs(BASE_DIR / 'staticfiles', exist_ok=True)
 
 # API Rate limiting (optional - requires django-ratelimit)
 RATE_LIMIT_ENABLED = config('RATE_LIMIT_ENABLED', default=False, cast=bool)
